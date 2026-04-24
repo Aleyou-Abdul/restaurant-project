@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="520" viewBox="0 0 800 520" role="img" aria-label="Menu placeholder image">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fef3c7"/>
+      <stop offset="100%" stop-color="#fde68a"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="520" rx="36" fill="url(#bg)"/>
+  <circle cx="400" cy="210" r="112" fill="#fff7ed"/>
+  <ellipse cx="400" cy="235" rx="150" ry="70" fill="#ffffff"/>
+  <path d="M300 215c30-42 170-42 200 0" fill="none" stroke="#f59e0b" stroke-width="18" stroke-linecap="round"/>
+  <path d="M324 245c22 20 130 20 152 0" fill="none" stroke="#f97316" stroke-width="16" stroke-linecap="round"/>
+  <circle cx="352" cy="205" r="12" fill="#16a34a"/>
+  <circle cx="432" cy="192" r="12" fill="#16a34a"/>
+  <circle cx="458" cy="230" r="12" fill="#16a34a"/>
+  <text x="400" y="402" text-anchor="middle" font-family="Poppins, Arial, sans-serif" font-size="42" font-weight="700" fill="#92400e">Upload Food Image</text>
+  <text x="400" y="446" text-anchor="middle" font-family="Poppins, Arial, sans-serif" font-size="24" fill="#a16207">New menu items use this until you add a real photo.</text>
+</svg>

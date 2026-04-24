@@ -1,0 +1,14 @@
+{
+  "name": "restaurant-project",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "start:prod": "node server.js",
+    "check": "node --check server.js && node --check script.js && node --check admin.js && node --check cart.js && node --check owner-report.js",
+    "hash-password": "node scripts/hash-password.js"
+  },
+  "dependencies": {
+    "sqlite3": "^6.0.1"
+  }
+}

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | My Restaurant</title>
+    <link rel="stylesheet" href="style.css?v=20260424b">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="admin-body">
+    <div id="admin-dashboard" class="admin-app" hidden>
+        <aside class="admin-sidebar">
+            <div class="admin-brand">
+                <div class="admin-brand-badge">AF</div>
+                <div>
+                    <h1>Admin Panel</h1>
+                    <p>Restaurant control center</p>
+                </div>
+            </div>
+
+            <nav class="admin-nav">
+                <button class="admin-nav-btn is-active" data-section="dashboard" type="button">Dashboard</button>
+                <button class="admin-nav-btn" data-section="orders" type="button">Orders</button>
+                <button class="admin-nav-btn" data-section="menu" type="button">Menu Management</button>
+                <button class="admin-nav-btn" data-section="settings" type="button">Settings</button>
+            </nav>
+        </aside>
+
+        <main class="admin-main">
+            <div class="admin-topbar">
+                <div>
+                    <h2 id="admin-page-title">Customer Orders</h2>
+                    <p id="admin-status" class="payment-status info">Loading dashboard...</p>
+                </div>
+                <div class="admin-topbar-actions">
+                    <div class="admin-notification-wrap">
+                        <button id="admin-notification-btn" class="admin-notification-btn" type="button" aria-label="View new orders">
+                            <span aria-hidden="true">&#128276;</span>
+                            <span id="admin-notification-count" class="admin-notification-count">0</span>
+                        </button>
+                        <div id="admin-notification-panel" class="admin-notification-panel" hidden>
+                            <div class="admin-notification-header">
+                                <strong>New Orders</strong>
+                                <span id="admin-notification-label">0 pending</span>
+                            </div>
+                            <div id="admin-notification-list" class="admin-notification-list"></div>
+                        </div>
+                    </div>
+                    <span class="admin-user-pill">Admin</span>
+                    <a href="owner-login.html" class="admin-owner-link">Owner Page</a>
+                    <button id="refresh-orders-btn" type="button">Refresh</button>
+                    <button id="backup-database-btn" type="button">Backup DB</button>
+                    <button id="save-site-data-btn" type="button">Save Changes</button>
+                    <button id="admin-logout-btn" type="button">Log Out</button>
+                </div>
+            </div>
+
+            <section id="admin-section-dashboard" class="admin-section is-active">
+                <div class="admin-stats-grid">
+                    <article class="admin-stat-card">
+                        <p>Total Orders</p>
+                        <h3 id="stat-total-orders">0</h3>
+                    </article>
+                    <article class="admin-stat-card">
+                        <p>Pending Orders</p>
+                        <h3 id="stat-pending-orders">0</h3>
+                    </article>
+                    <article class="admin-stat-card">
+                        <p>Total Revenue</p>
+                        <h3 id="stat-total-revenue">&#8358;0</h3>
+                    </article>
+                </div>
+
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>Recent Orders</h3>
+                        <button id="dashboard-refresh-btn" type="button">Refresh</button>
+                    </div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Items</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-orders-body"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>Backups & Logs</h3>
+                    </div>
+                    <div class="admin-monitor-grid">
+                        <article class="admin-monitor-card">
+                            <div class="admin-monitor-card-header">
+                                <h4>Recent Backups</h4>
+                                <button id="refresh-monitoring-btn" type="button">Refresh</button>
+                            </div>
+                            <div id="backup-list" class="admin-monitor-list">
+                                <p class="admin-helper-text">No backups loaded yet.</p>
+                            </div>
+                        </article>
+                        <article class="admin-monitor-card">
+                            <div class="admin-monitor-card-header">
+                                <h4>Recent Server Logs</h4>
+                            </div>
+                            <div id="log-list" class="admin-monitor-list">
+                                <p class="admin-helper-text">No logs loaded yet.</p>
+                            </div>
+                        </article>
+                    </div>
+                </section>
+            </section>
+
+            <section id="admin-section-orders" class="admin-section">
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>All Verified Orders</h3>
+                    </div>
+                    <div id="orders-empty" class="empty-cart-message" hidden>No verified orders yet.</div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Area</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="orders-table-body"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <div id="orders-list" class="orders-list"></div>
+            </section>
+
+            <section id="admin-section-menu" class="admin-section">
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>Categories</h3>
+                        <button id="add-category-btn" type="button">Add Category</button>
+                    </div>
+                    <p class="admin-helper-text">These categories power the homepage filters and the category choice for each menu item.</p>
+                    <div id="categories-admin-list" class="admin-repeat-list"></div>
+                </section>
+
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>Menu Management</h3>
+                        <button id="add-menu-item-btn" type="button">Add Menu Item</button>
+                    </div>
+                    <div id="menu-admin-list" class="admin-repeat-list"></div>
+                </section>
+            </section>
+
+            <section id="admin-section-settings" class="admin-section">
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>Site Settings</h3>
+                    </div>
+                    <div class="admin-form-grid">
+                        <div class="admin-field admin-field-wide">
+                            <label>Header Logo</label>
+                            <div class="admin-image-upload">
+                                <input id="site-logo-path" type="text" placeholder="Logo path will appear here after upload">
+                                <div class="admin-upload-tools">
+                                    <button id="site-logo-upload-btn" class="admin-upload-btn" type="button">Upload Logo</button>
+                                    <input id="site-logo-upload-input" class="admin-upload-input" type="file" accept="image/*" hidden>
+                                    <span id="site-logo-upload-status" class="admin-upload-status">No logo uploaded yet.</span>
+                                </div>
+                                <img id="site-logo-preview" class="admin-image-preview" alt="Site logo preview" hidden>
+                            </div>
+                        </div>
+                        <div class="admin-field">
+                            <label for="site-name">Restaurant Name</label>
+                            <input id="site-name" type="text">
+                        </div>
+                        <div class="admin-field">
+                            <label for="site-phone">Phone</label>
+                            <input id="site-phone" type="text">
+                        </div>
+                        <div class="admin-field">
+                            <label for="site-email">Email</label>
+                            <input id="site-email" type="email">
+                        </div>
+                        <div class="admin-field">
+                            <label for="site-location">Location</label>
+                            <input id="site-location" type="text">
+                        </div>
+                        <div class="admin-field">
+                            <label for="site-whatsapp">WhatsApp Number</label>
+                            <input id="site-whatsapp" type="text">
+                        </div>
+                        <div class="admin-field admin-field-wide">
+                            <label for="site-hero-title">Hero Title</label>
+                            <input id="site-hero-title" type="text">
+                        </div>
+                        <div class="admin-field admin-field-wide">
+                            <label for="site-hero-subtitle">Hero Subtitle</label>
+                            <textarea id="site-hero-subtitle" rows="3"></textarea>
+                        </div>
+                        <div class="admin-field">
+                            <label for="site-opening-time">Opening Time</label>
+                            <input id="site-opening-time" type="time">
+                        </div>
+                        <div class="admin-field">
+                            <label for="site-closing-time">Closing Time</label>
+                            <input id="site-closing-time" type="time">
+                        </div>
+                        <div class="admin-field admin-field-wide">
+                            <label>Hero Slider Images</label>
+                            <p class="admin-helper-text">Upload up to 3 pictures for the homepage slider.</p>
+                            <div class="admin-slider-upload-grid">
+                                <div class="admin-image-upload">
+                                    <input id="hero-slide-1-path" type="text" placeholder="Hero image 1 path">
+                                    <div class="admin-upload-tools">
+                                        <button id="hero-slide-1-upload-btn" class="admin-upload-btn" type="button">Upload Slide 1</button>
+                                        <input id="hero-slide-1-upload-input" class="admin-upload-input" type="file" accept="image/*" hidden>
+                                        <span id="hero-slide-1-upload-status" class="admin-upload-status">No image uploaded yet.</span>
+                                    </div>
+                                    <img id="hero-slide-1-preview" class="admin-image-preview" alt="Hero slide 1 preview" hidden>
+                                </div>
+                                <div class="admin-image-upload">
+                                    <input id="hero-slide-2-path" type="text" placeholder="Hero image 2 path">
+                                    <div class="admin-upload-tools">
+                                        <button id="hero-slide-2-upload-btn" class="admin-upload-btn" type="button">Upload Slide 2</button>
+                                        <input id="hero-slide-2-upload-input" class="admin-upload-input" type="file" accept="image/*" hidden>
+                                        <span id="hero-slide-2-upload-status" class="admin-upload-status">No image uploaded yet.</span>
+                                    </div>
+                                    <img id="hero-slide-2-preview" class="admin-image-preview" alt="Hero slide 2 preview" hidden>
+                                </div>
+                                <div class="admin-image-upload">
+                                    <input id="hero-slide-3-path" type="text" placeholder="Hero image 3 path">
+                                    <div class="admin-upload-tools">
+                                        <button id="hero-slide-3-upload-btn" class="admin-upload-btn" type="button">Upload Slide 3</button>
+                                        <input id="hero-slide-3-upload-input" class="admin-upload-input" type="file" accept="image/*" hidden>
+                                        <span id="hero-slide-3-upload-status" class="admin-upload-status">No image uploaded yet.</span>
+                                    </div>
+                                    <img id="hero-slide-3-preview" class="admin-image-preview" alt="Hero slide 3 preview" hidden>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>Delivery Zones</h3>
+                        <button id="add-zone-btn" type="button">Add Zone</button>
+                    </div>
+                    <div id="zones-admin-list" class="admin-repeat-list"></div>
+                </section>
+            </section>
+        </main>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>

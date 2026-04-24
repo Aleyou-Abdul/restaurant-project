@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Cart | My Restaurant</title>
+    <link rel="stylesheet" href="style.css?v=20260424b">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="logo-wrap">
+            <img id="cart-site-logo-image" class="site-logo-image" alt="Restaurant logo" hidden>
+            <div id="cart-site-logo" class="logo">My Restaurant</div>
+        </div>
+        <nav>
+            <a href="index.html">Home</a>
+            <a href="index.html#menu">Menu</a>
+            <a href="index.html#contact">Contact</a>
+            <a href="cart.html" class="cart-icon" aria-label="View cart">
+                <span class="cart-icon-symbol" aria-hidden="true">&#128722;</span>
+                <span id="cart-count">0</span>
+            </a>
+        </nav>
+    </header>
+
+    <section class="cart-section">
+        <h2>Your Cart</h2>
+        <div class="cart-container">
+            <div id="order-success-banner" class="order-success-banner" hidden>
+                <h3>Payment received successfully</h3>
+                <p>Your order has been placed and your receipt is shown below.</p>
+            </div>
+            <p id="empty-cart" class="empty-cart-message">Your cart is empty.</p>
+            <div id="cart-items" class="cart-items"></div>
+
+            <div class="delivery-box">
+                <div class="delivery-grid">
+                    <div class="delivery-field">
+                        <label for="delivery-area">Delivery area</label>
+                        <select id="delivery-area">
+                            <option value="">Select your area</option>
+                        </select>
+                    </div>
+                    <div class="delivery-field">
+                        <label for="delivery-location">Drop-off details</label>
+                        <textarea id="delivery-location" rows="3" placeholder="House address, landmark, estate gate, or anything the rider should know"></textarea>
+                    </div>
+                </div>
+                <div class="delivery-actions">
+                    <button id="use-location-btn" type="button">Use Current Location</button>
+                    <p id="delivery-status" class="delivery-status"></p>
+                </div>
+            </div>
+
+            <div class="order-note-box">
+                <label for="order-note">Order note</label>
+                <textarea id="order-note" rows="4" placeholder="Example: no onions, extra pepper, add more chicken"></textarea>
+                <p class="order-note-help">Use this for special instructions about the food.</p>
+            </div>
+
+            <div class="cart-summary">
+                <div class="summary-breakdown">
+                    <p>Food Total: <span id="cart-subtotal">&#8358;0</span></p>
+                    <p>Delivery Fee: <span id="delivery-fee">&#8358;0</span></p>
+                    <p>Service Fee: <span id="service-fee">&#8358;100</span></p>
+                    <h3>Total: <span id="cart-total">&#8358;0</span></h3>
+                </div>
+                <div class="payment-details">
+                    <label for="customer-phone">Phone number</label>
+                    <input id="customer-phone" type="tel" placeholder="08012345678" autocomplete="tel">
+                    <label for="customer-email">Email for payment</label>
+                    <input id="customer-email" type="email" placeholder="you@example.com" autocomplete="email">
+                    <p id="cart-order-window-status" class="payment-status info"></p>
+                    <p id="payment-status" class="payment-status"></p>
+                </div>
+                <div class="cart-summary-actions">
+                    <button id="pay-btn" type="button">Pay Now</button>
+                </div>
+            </div>
+
+            <section id="receipt-card" class="receipt-card" hidden>
+                <div class="receipt-header">
+                    <h3>Payment Receipt</h3>
+                    <div class="receipt-actions">
+                        <button id="download-receipt-btn" type="button">Download PDF</button>
+                        <button id="print-receipt-btn" type="button">Print Receipt</button>
+                    </div>
+                </div>
+                <div id="receipt-content"></div>
+            </section>
+        </div>
+    </section>
+
+    <div id="payment-modal" class="payment-modal" aria-hidden="true">
+        <div class="payment-modal-box">
+            <h3 id="payment-modal-title">Payment Status</h3>
+            <p id="payment-modal-message"></p>
+            <button id="close-payment-modal" type="button">Close</button>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-container">
+            <div>
+                <div class="footer-brand">
+                    <img id="cart-footer-logo-image" class="footer-logo-image" alt="Restaurant logo" hidden>
+                    <h3 id="cart-footer-name">My Restaurant</h3>
+                </div>
+                <p id="cart-footer-tagline">Fresh food, quick delivery, and easy ordering.</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 <span id="cart-footer-bottom-name">My Restaurant</span>. All rights reserved.</p>
+            <p class="footer-credit-row">Powered by <a class="footer-credit-link" href="instant-tech-solution.html">Instant Tech Solution</a></p>
+        </div>
+    </footer>
+
+    <script src="https://js.paystack.co/v2/inline.js"></script>
+    <script src="cart.js"></script>
+</body>
+</html>

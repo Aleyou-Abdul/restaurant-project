@@ -1,0 +1,240 @@
+{
+  "site": {
+    "restaurantName": "The Hungry Nomad Restaurant",
+    "logoPath": "images/uploads/h-nomad-letterhead-page-0001-1776878261449-d2eaff16.jpg",
+    "heroSlides": [],
+    "openingTime": "11:00",
+    "closingTime": "22:30",
+    "heroTitle": "Delicious Meals Delivered Fast",
+    "heroSubtitle": "Fresh, hot, and tasty dishes straight to your door.",
+    "phone": "08000000000",
+    "email": "myrestaurant@gmail.com",
+    "location": "Kaduna, Nigeria",
+    "whatsappNumber": "08103519125"
+  },
+  "categories": [
+    "Food",
+    "Grills",
+    "Junk Food",
+    "Drinks"
+  ],
+  "menuItems": [
+    {
+      "id": "jollof-rice",
+      "name": "Jollof Rice",
+      "price": 2500,
+      "image": "images/jollof.jfif",
+      "category": "Food",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "burger",
+      "name": "Burger",
+      "price": 3000,
+      "image": "images/burger.jfif",
+      "category": "Junk Food",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "shawarma",
+      "name": "Shawarma",
+      "price": 2000,
+      "image": "images/shawarma.jfif",
+      "category": "Junk Food",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "nashville-burger",
+      "name": "Nashville Burger",
+      "price": 3500,
+      "image": "images/uploads/nashville-1-1776868654425-9af49a08.png",
+      "category": "Junk Food",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "biryani",
+      "name": "Biryani",
+      "price": 3000,
+      "image": "images/uploads/images-1776871167615-78ebb3ea.jpg",
+      "category": "Food",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "nigerian-fried-rice",
+      "name": "Nigerian Fried Rice",
+      "price": 3500,
+      "image": "images/uploads/images-1-1776871326323-4dcf0827.jpg",
+      "category": "Food",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "asup-rice",
+      "name": "Asup Rice",
+      "price": 2000,
+      "image": "images/uploads/images-2-1776871394705-eb0d2bb2.jpg",
+      "category": "Food",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "chines",
+      "name": "Chines",
+      "price": 3000,
+      "image": "images/uploads/images-1776871476902-a7d9a252.jpg",
+      "category": "Food",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "chicken-part",
+      "name": "Chicken Part",
+      "price": 1000,
+      "image": "images/uploads/images-3-1776871536553-e6804dd5.jpg",
+      "category": "Food",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "white-rice-with-soup",
+      "name": "White Rice with Soup",
+      "price": 2500,
+      "image": "images/uploads/images-6-1776871700340-988a3741.jpg",
+      "category": "Food",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "chicken-chips-and-eggs",
+      "name": "Chicken Chips and Eggs",
+      "price": 4300,
+      "image": "images/uploads/722f48fd-86a6-4608-bbe1-b128614842f2-1776871728156-f931a4eb.jpg",
+      "category": "Junk Food",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "loaded-fries",
+      "name": "Loaded Fries",
+      "price": 5000,
+      "image": "images/uploads/images-9-1776871801577-bd02b133.jpg",
+      "category": "Junk Food",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "vanilla-milkshake",
+      "name": "Vanilla Milkshake",
+      "price": 4000,
+      "image": "images/uploads/images-7-1776871974352-2acc18ca.jpg",
+      "category": "Drinks",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "oreo-milkshake",
+      "name": "Oreo Milkshake",
+      "price": 4000,
+      "image": "images/uploads/images-8-1776871959984-987b6dbe.jpg",
+      "category": "Drinks",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "strawberry-milkshake",
+      "name": "Strawberry Milkshake",
+      "price": 4000,
+      "image": "images/uploads/2g5f13y-1776872116944-4bfdc70f.jpg",
+      "category": "Drinks",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "grill-full-chicken",
+      "name": "Grill Full Chicken",
+      "price": 6300,
+      "image": "images/uploads/images-10-1776872237397-26b5742a.jpg",
+      "category": "Grills",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "halp-chicken",
+      "name": "Halp Chicken",
+      "price": 3200,
+      "image": "images/uploads/images-11-1776872305563-029995b0.jpg",
+      "category": "Grills",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "suya",
+      "name": "Suya",
+      "price": 1000,
+      "image": "images/uploads/images-12-1776872355603-ee3d4429.jpg",
+      "category": "Grills",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "mix-fruit",
+      "name": "Mix Fruit",
+      "price": 1000,
+      "image": "images/uploads/images-13-1776872399358-54a1924c.jpg",
+      "category": "Drinks",
+      "availability": "available",
+      "stockQuantity": null
+    },
+    {
+      "id": "golding-yam",
+      "name": "Golding Yam",
+      "price": 2000,
+      "image": "images/uploads/maxresdefault-1776872444444-fec1ba79.jpg",
+      "category": "Food",
+      "availability": "available",
+      "stockQuantity": null
+    }
+  ],
+  "deliveryZones": [
+    {
+      "value": "barnawa",
+      "label": "Barnawa",
+      "fee": 1000
+    },
+    {
+      "value": "kakuri",
+      "label": "Kakuri",
+      "fee": 1200
+    },
+    {
+      "value": "malali",
+      "label": "Malali",
+      "fee": 1500
+    },
+    {
+      "value": "ungwan-roke",
+      "label": "Ungwan Rimi / Ungwan Rukuba",
+      "fee": 1800
+    },
+    {
+      "value": "sabon-tasha",
+      "label": "Sabon Tasha",
+      "fee": 2000
+    },
+    {
+      "value": "gonin-gora",
+      "label": "Gonin Gora",
+      "fee": 2500
+    },
+    {
+      "value": "Unguwan Sarki",
+      "label": "Unguwan Sarki",
+      "fee": 791
+    }
+  ]
+}

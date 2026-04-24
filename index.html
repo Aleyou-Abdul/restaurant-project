@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restaurant Website</title>
+    <link rel="stylesheet" href="style.css?v=20260424b">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header>
+        <div class="logo-wrap">
+            <img id="site-logo-image" class="site-logo-image" alt="Restaurant logo" hidden>
+            <div id="site-logo" class="logo">My Restaurant</div>
+        </div>
+        <nav>
+            <a href="#">Home</a>
+            <a href="#menu">Menu</a>
+            <a href="#contact">Contact</a>
+            <a href="cart.html" class="cart-icon" aria-label="View cart">
+                <span class="cart-icon-symbol" aria-hidden="true">&#128722;</span>
+                <span id="cart-count">0</span>
+            </a>
+        </nav>
+    </header>
+
+    <section class="hero">
+        <div id="hero-slider" class="hero-background-slider"></div>
+        <div class="hero-shell">
+            <div class="hero-copy">
+                <p class="hero-kicker">Fresh kitchen. Fast delivery.</p>
+                <h2 id="hero-title">Delicious Meals Delivered Fast</h2>
+                <p id="hero-subtitle">Fresh, hot, and tasty dishes straight to your door.</p>
+                <p id="hero-hours" class="hero-hours"></p>
+                <p id="hero-order-status" class="hero-order-status"></p>
+                <div class="hero-actions">
+                    <a href="#menu">Order Now</a>
+                    <a class="hero-secondary-link" href="cart.html">View Cart</a>
+                </div>
+                <div class="hero-highlights">
+                    <span>Fast delivery</span>
+                    <span>Secure payment</span>
+                    <span>Service fee included</span>
+                </div>
+                <div id="hero-slider-dots" class="hero-slider-dots hero-slider-dots-inline"></div>
+            </div>
+
+            <div class="hero-panel fade-in">
+                <div class="hero-panel-card">
+                    <p>Today&apos;s kitchen promise</p>
+                    <h3>Freshly prepared meals with simple ordering and reliable delivery.</h3>
+                </div>
+                <div class="hero-metrics">
+                    <div>
+                        <strong>3+</strong>
+                        <span>Trending meals</span>
+                    </div>
+                    <div>
+                        <strong>100%</strong>
+                        <span>Direct checkout flow</span>
+                    </div>
+                    <div id="hero-countdown-card" class="hero-countdown-card">
+                        <strong id="hero-countdown-title">Easy</strong>
+                        <span id="hero-countdown-subtitle">Receipt-ready orders</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="home-strip">
+        <div class="home-strip-item">
+            <strong>Quick Ordering</strong>
+            <span>Add to cart and pay online with a clean checkout flow.</span>
+        </div>
+        <div class="home-strip-item">
+            <strong>Delivery Support</strong>
+            <span>Area-based fees, notes, and rider contact details.</span>
+        </div>
+        <div class="home-strip-item">
+            <strong>Trusted Checkout</strong>
+            <span>Receipt generation and verified payment flow.</span>
+        </div>
+    </section>
+
+    <section class="meals trending-section">
+        <div class="section-heading">
+            <p class="section-kicker">Trending Now</p>
+            <h2>Top Orders Right Now</h2>
+            <p>The three meals customers are buying the most will show here automatically.</p>
+        </div>
+        <div id="trending-items" class="meal-container trending-grid"></div>
+    </section>
+
+    <section id="menu" class="meals">
+        <div class="section-heading">
+            <p class="section-kicker">Browse The Menu</p>
+            <h2>Order By Category</h2>
+            <p>Switch between categories to find exactly what you want faster.</p>
+        </div>
+        <div id="menu-categories" class="category-filter-bar"></div>
+        <div id="menu-items" class="meal-container"></div>
+    </section>
+
+    <section class="cta-band">
+        <div>
+            <p class="section-kicker">Ready to check out?</p>
+            <h3>Review your order, choose your delivery area, and pay with your service fee included.</h3>
+        </div>
+        <a href="cart.html">Go to Cart</a>
+    </section>
+
+    <footer id="contact" class="footer">
+        <div class="footer-container">
+            <div>
+                <div class="footer-brand">
+                    <img id="footer-logo-image" class="footer-logo-image" alt="Restaurant logo" hidden>
+                    <h3 id="footer-name">My Restaurant</h3>
+                </div>
+                <p id="footer-tagline">Delicious meals delivered to your doorstep.</p>
+            </div>
+            <div>
+                <h3>Contact</h3>
+                <p>Phone: <span id="footer-phone">08000000000</span></p>
+                <p>Email: <span id="footer-email">myrestaurant@gmail.com</span></p>
+            </div>
+            <div>
+                <h3>Location</h3>
+                <p id="footer-location">Kaduna, Nigeria</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 <span id="footer-bottom-name">My Restaurant</span>. All rights reserved.</p>
+            <p class="footer-credit-row">Powered by <a class="footer-credit-link" href="instant-tech-solution.html">Instant Tech Solution</a></p>
+        </div>
+    </footer>
+
+    <div id="site-toast" class="site-toast" aria-live="polite"></div>
+    <script src="script.js"></script>
+</body>
+</html>
