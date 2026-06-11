@@ -172,6 +172,9 @@ Important `.env` values include:
 - `npm start`
   Start the app.
 
+- `npm ci --omit=dev`
+  Install production dependencies from the lockfile for deployment.
+
 - `npm run hash-password -- yourPasswordHere`
   Generate a password hash for admin credentials.
 

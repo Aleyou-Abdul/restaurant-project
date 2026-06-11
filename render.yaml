@@ -3,12 +3,14 @@ services:
     name: restaurant-project
     runtime: node
     plan: free
-    buildCommand: npm install --omit=dev
+    buildCommand: npm ci --omit=dev
     startCommand: npm start
     autoDeploy: true
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 20
       - key: PORT
         value: 10000
       - key: STORAGE_ROOT

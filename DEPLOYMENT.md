@@ -44,6 +44,12 @@ For production, upgrade to a paid plan and add a persistent disk.
 npm install --omit=dev
 ```
 
+For Render Blueprint, the repository uses the lockfile-based command:
+
+```bash
+npm ci --omit=dev
+```
+
 - Start command:
 
 ```bash
@@ -54,6 +60,7 @@ npm start
 
 ```env
 NODE_ENV=production
+NODE_VERSION=20
 PORT=10000
 STORAGE_ROOT=/tmp/restaurant-demo-storage
 PAYSTACK_PUBLIC_KEY=...
