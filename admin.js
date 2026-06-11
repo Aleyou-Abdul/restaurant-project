@@ -37,6 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const addMenuItemBtn = document.getElementById("add-menu-item-btn");
     const addCategoryBtn = document.getElementById("add-category-btn");
     const addZoneBtn = document.getElementById("add-zone-btn");
+    const createStaffUserBtn = document.getElementById("create-staff-user-btn");
     const adminNavButtons = [...document.querySelectorAll(".admin-nav-btn")];
     const adminSections = [...document.querySelectorAll(".admin-section")];
     const statTotalOrdersEl = document.getElementById("stat-total-orders");
@@ -44,15 +45,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const statTotalRevenueEl = document.getElementById("stat-total-revenue");
     const backupListEl = document.getElementById("backup-list");
     const logListEl = document.getElementById("log-list");
+    const staffUsersListEl = document.getElementById("staff-users-list");
+    const staffUsersEmptyEl = document.getElementById("staff-users-empty");
+    const adminSalesRangeEl = document.getElementById("admin-sales-range");
+    const adminSalesRefreshBtn = document.getElementById("admin-sales-refresh-btn");
+    const adminSalesClosingBtn = document.getElementById("admin-sales-closing-btn");
+    const adminSalesDownloadBtn = document.getElementById("admin-sales-download-btn");
+    const adminSalesPrintBtn = document.getElementById("admin-sales-print-btn");
+    const adminSalesBodyEl = document.getElementById("admin-sales-body");
+    const adminSalesTotalOrdersEl = document.getElementById("admin-sales-total-orders");
+    const adminSalesTotalQuantityEl = document.getElementById("admin-sales-total-quantity");
+    const adminSalesTotalValueEl = document.getElementById("admin-sales-total-value");
+    const adminSalesFooterTotalEl = document.getElementById("admin-sales-footer-total");
+    const adminClosingHistoryEl = document.getElementById("admin-closing-history");
 
     let ordersCache = [];
     let previousPendingCount = 0;
     let hasLoadedOrdersOnce = false;
+    let autoRefreshTimerId = null;
+    let isAutoRefreshing = false;
+    let salesReportCache = {
+        items: [],
+        totalItemSales: 0,
+        totalOrders: 0
+    };
 
     function getSiteBranding() {
         return {
             restaurantName: readInput("site-name") || "My Restaurant",
-            logoPath: readInput("site-logo-path") || ""
+            logoPath: readInput("site-logo-path") || "",
+            phone: readInput("site-phone") || "",
+            location: readInput("site-location") || ""
         };
     }
 
@@ -99,8 +122,15 @@ document.addEventListener("DOMContentLoaded", () => {
         return getOrderStatus(order).toLowerCase() === "dispatched";
     }
 
+    function getFulfillmentLabel(order) {
+        return order && order.fulfillmentType === "pickup" ? "Pickup" : "Delivery";
+    }
+
     async function fetchJson(url, options) {
-        const response = await fetch(url, options);
+        const response = await fetch(url, {
+            cache: "no-store",
+            ...options
+        });
         const data = await response.json();
 
         if (!response.ok) {
@@ -124,6 +154,8 @@ document.addEventListener("DOMContentLoaded", () => {
             dashboard: "Customer Orders",
             orders: "Verified Orders",
             menu: "Menu Management",
+            users: "User Management",
+            sales: "Sales Report",
             settings: "Website Settings"
         };
 
@@ -531,95 +563,316 @@ document.addEventListener("DOMContentLoaded", () => {
         return badge;
     }
 
-    function buildOrderReceiptMarkup(order) {
+    function resetStaffUserForm() {
+        document.getElementById("staff-display-name").value = "";
+        document.getElementById("staff-username").value = "";
+        document.getElementById("staff-password").value = "";
+    }
+
+    function renderUsers(users) {
+        staffUsersListEl.innerHTML = "";
+        staffUsersEmptyEl.hidden = Boolean(users.length);
+
+        users.forEach((user) => {
+            const row = document.createElement("article");
+            row.className = "admin-repeat-row admin-user-row";
+            row.innerHTML = `
+                <div class="admin-user-meta">
+                    <strong>${escapeHtml(user.displayName || user.username)} ${user.blocked ? '<span class="admin-block-badge">Blocked</span>' : ""}</strong>
+                    <span>@${escapeHtml(user.username)}</span>
+                    <small>${user.blocked ? "Blocked from login and order handling" : "Can manage orders and stock updates"}</small>
+                </div>
+                <div class="admin-order-actions">
+                    <button class="admin-action-btn ${user.blocked ? "" : "admin-action-btn-primary"}" type="button">${user.blocked ? "Unblock" : "Block"}</button>
+                    <button class="remove-btn" type="button">Delete User</button>
+                </div>
+            `;
+
+            row.querySelector(".admin-action-btn").addEventListener("click", async () => {
+                try {
+                    setStatus(`${user.blocked ? "Unblocking" : "Blocking"} ${user.username}...`, "info");
+                    const response = await fetchJson("/api/admin/users/block", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            username: user.username,
+                            blocked: !user.blocked
+                        })
+                    });
+                    renderUsers(response.users || []);
+                    setStatus(response.message || "User status updated successfully.", "success");
+                } catch (error) {
+                    setStatus(error.message, "error");
+                }
+            });
+
+            row.querySelector(".remove-btn").addEventListener("click", async () => {
+                try {
+                    setStatus(`Removing ${user.username}...`, "info");
+                    const response = await fetchJson("/api/admin/users/delete", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            username: user.username
+                        })
+                    });
+                    renderUsers(response.users || []);
+                    setStatus(`User ${user.username} removed successfully.`, "success");
+                } catch (error) {
+                    setStatus(error.message, "error");
+                }
+            });
+
+            staffUsersListEl.appendChild(row);
+        });
+    }
+
+    function getSalesRangeLabel() {
+        const labels = {
+            today: "Daily",
+            week: "Weekly",
+            month: "Monthly",
+            all: "All Time"
+        };
+
+        return labels[adminSalesRangeEl.value] || "All Time";
+    }
+
+    // Sales reporting is item-based because management uses it for closing and stock visibility.
+    function renderSalesReport(report) {
+        salesReportCache = report;
+        adminSalesBodyEl.innerHTML = "";
+
+        if (!report.items.length) {
+            adminSalesBodyEl.innerHTML = '<tr><td colspan="3">No item sales in this range.</td></tr>';
+        } else {
+            report.items.forEach((item) => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${escapeHtml(item.name)}</td>
+                    <td>${escapeHtml(item.quantity)}</td>
+                    <td>${formatPrice(item.total)}</td>
+                `;
+                adminSalesBodyEl.appendChild(row);
+            });
+        }
+
+        const totalQuantity = (report.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+        adminSalesTotalOrdersEl.textContent = String(report.totalOrders || 0);
+        adminSalesTotalQuantityEl.textContent = String(totalQuantity);
+        adminSalesTotalValueEl.textContent = formatPrice(report.totalItemSales || 0);
+        adminSalesFooterTotalEl.textContent = formatPrice(report.totalItemSales || 0);
+    }
+
+    function renderClosingHistory(history) {
+        adminClosingHistoryEl.innerHTML = "";
+
+        if (!history.length) {
+            adminClosingHistoryEl.innerHTML = '<p class="admin-helper-text">No closing history yet.</p>';
+            return;
+        }
+
+        history.forEach((entry) => {
+            const item = document.createElement("div");
+            item.className = "admin-monitor-item";
+            item.innerHTML = `
+                <strong>${escapeHtml(formatDateTime(entry.closedAt))}</strong>
+                <span>Orders: ${escapeHtml(entry.totalOrders)}</span>
+                <span>Items Sold: ${escapeHtml(entry.totalItemsSold)}</span>
+                <span>Total Sales: ${formatPrice(entry.totalItemSales || 0)}</span>
+            `;
+            adminClosingHistoryEl.appendChild(item);
+        });
+    }
+
+    function getSalesPrintDocument(report) {
+        const rows = (report.items || [])
+            .map((item) => `<tr><td>${escapeHtml(item.name)}</td><td>${escapeHtml(item.quantity)}</td><td>${formatPrice(item.total)}</td></tr>`)
+            .join("");
+
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Sales Report</title><style>body{font-family:Poppins,Arial,sans-serif;margin:0;padding:24px;color:#111;background:#fff}.sheet{max-width:820px;margin:0 auto;border:1px solid #ddd;border-radius:16px;padding:24px}.summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0}.summary-card{padding:14px;border:1px solid #e5e7eb;border-radius:14px;background:#fafafa}.summary-card strong,.summary-card p{margin:0}.summary-card p{margin-top:6px;font-size:22px;font-weight:700}table{width:100%;border-collapse:collapse;margin-top:18px}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #e5e7eb}h1,p{margin-top:0}.footer-total{display:flex;justify-content:space-between;align-items:center;margin-top:20px;padding-top:14px;border-top:2px solid #111;font-size:20px;font-weight:700}@media print{body{padding:0}.sheet{border:none;border-radius:0;padding:0}}</style></head><body><div class="sheet"><h1>Sales Report</h1><p>Range: ${getSalesRangeLabel()}</p><div class="summary"><div class="summary-card"><strong>Total Orders</strong><p>${report.totalOrders || 0}</p></div><div class="summary-card"><strong>Total Items Sold</strong><p>${(report.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)}</p></div><div class="summary-card"><strong>Total Item Sales</strong><p>${formatPrice(report.totalItemSales || 0)}</p></div></div><table><thead><tr><th>Item</th><th>Quantity Sold</th><th>Total</th></tr></thead><tbody>${rows || '<tr><td colspan="3">No item sales in this range.</td></tr>'}</tbody></table><div class="footer-total"><span>Total of all item sales</span><span>${formatPrice(report.totalItemSales || 0)}</span></div></div></body></html>`;
+    }
+
+    function getClosingSummaryDocument(report) {
         const branding = getSiteBranding();
-        const safeLogoPath = getSafeImageSrc(branding.logoPath);
-        const logoMarkup = safeLogoPath
-            ? `<img src="${escapeHtml(safeLogoPath)}" alt="${escapeHtml(branding.restaurantName)}" style="width:64px;height:64px;object-fit:cover;border-radius:16px;border:1px solid #ddd;">`
-            : "";
-        const itemsMarkup = (order.items || [])
+        const today = new Date().toLocaleString("en-NG", {
+            dateStyle: "medium",
+            timeStyle: "short"
+        });
+        const totalQuantity = (report.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+        const rows = (report.items || [])
             .map((item) => `
                 <tr>
                     <td>${escapeHtml(item.name)}</td>
-                    <td>x${escapeHtml(item.quantity)}</td>
-                    <td>${formatPrice(item.price * item.quantity)}</td>
+                    <td>${escapeHtml(item.quantity)}</td>
+                    <td>${formatPrice(item.total)}</td>
                 </tr>
             `)
             .join("");
 
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Closing Summary</title><style>@page{size:A4;margin:14mm}body{font-family:Poppins,Arial,sans-serif;margin:0;color:#111;background:#fff} .sheet{max-width:760px;margin:0 auto;border:1px solid #ddd;border-radius:18px;padding:24px 24px 28px} .brand{text-align:center;margin-bottom:16px} .brand h1{margin:0;font-size:28px} .brand p{margin:4px 0 0;color:#475569} .heading{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:18px;padding-bottom:14px;border-bottom:2px solid #111} .heading h2,.heading p{margin:0} .summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px} .summary-card{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#fafafa} .summary-card strong,.summary-card p{margin:0} .summary-card p{margin-top:8px;font-size:22px;font-weight:700} table{width:100%;border-collapse:collapse} th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #e5e7eb} .footer-total{display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:14px;border-top:2px solid #111;font-size:22px;font-weight:700} .signoff{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:30px} .signoff p{margin:0 0 34px;color:#64748b} .signoff strong{display:block;padding-top:8px;border-top:1px solid #111} @media print{body{background:#fff}.sheet{border:none;border-radius:0;padding:0}}</style></head><body><div class="sheet"><div class="brand"><h1>${escapeHtml(branding.restaurantName)}</h1>${branding.phone ? `<p>${escapeHtml(branding.phone)}</p>` : ""}${branding.location ? `<p>${escapeHtml(branding.location)}</p>` : ""}</div><div class="heading"><div><h2>Daily Closing Summary</h2><p>Prepared for end-of-day review</p></div><div><strong>${today}</strong></div></div><div class="summary"><div class="summary-card"><strong>Total Orders</strong><p>${report.totalOrders || 0}</p></div><div class="summary-card"><strong>Total Items Sold</strong><p>${totalQuantity}</p></div><div class="summary-card"><strong>Total Item Sales</strong><p>${formatPrice(report.totalItemSales || 0)}</p></div></div><table><thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead><tbody>${rows || '<tr><td colspan="3">No item sales today.</td></tr>'}</tbody></table><div class="footer-total"><span>Total Sales For Today</span><span>${formatPrice(report.totalItemSales || 0)}</span></div><div class="signoff"><div><p>Prepared by</p><strong>________________________</strong></div><div><p>Approved by</p><strong>________________________</strong></div></div></div></body></html>`;
+    }
+
+    function printSalesReport(report) {
+        const frame = document.createElement("iframe");
+        frame.style.position = "fixed";
+        frame.style.width = "0";
+        frame.style.height = "0";
+        frame.style.border = "0";
+        document.body.appendChild(frame);
+
+        frame.onload = () => {
+            const frameWindow = frame.contentWindow;
+
+            if (frameWindow) {
+                frameWindow.focus();
+                frameWindow.print();
+            }
+
+            window.setTimeout(() => {
+                frame.remove();
+            }, 1200);
+        };
+
+        frame.srcdoc = getSalesPrintDocument(report);
+    }
+
+    function printClosingSummary(report) {
+        const frame = document.createElement("iframe");
+        frame.style.position = "fixed";
+        frame.style.width = "0";
+        frame.style.height = "0";
+        frame.style.border = "0";
+        document.body.appendChild(frame);
+
+        frame.onload = () => {
+            const frameWindow = frame.contentWindow;
+
+            if (frameWindow) {
+                frameWindow.focus();
+                frameWindow.print();
+            }
+
+            window.setTimeout(() => {
+                frame.remove();
+            }, 1200);
+        };
+
+        frame.srcdoc = getClosingSummaryDocument(report);
+    }
+
+    function buildReceipt(order) {
+        const branding = getSiteBranding();
+        const safeLogoPath = getSafeImageSrc(branding.logoPath);
+        const subtotal = Math.max(0, Number(order.total || 0) - Number(order.deliveryFee || 0) - Number(order.serviceFee || 0));
+        const totalItems = (order.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+        const fulfillmentLabel = getFulfillmentLabel(order);
+        const receiptBranding = `
+            <div class="receipt-thermal-brand">
+                ${safeLogoPath ? `<img class="receipt-logo receipt-logo-thermal" src="${escapeHtml(safeLogoPath)}" alt="${escapeHtml(branding.restaurantName)}">` : ""}
+                <h4>${escapeHtml(branding.restaurantName)}</h4>
+                ${branding.phone ? `<p class="receipt-thermal-contact">${escapeHtml(branding.phone)}</p>` : ""}
+                ${branding.location ? `<p class="receipt-thermal-contact">${escapeHtml(branding.location)}</p>` : ""}
+                <p class="receipt-kicker receipt-kicker-thermal">Order receipt</p>
+            </div>
+        `;
+        const itemsMarkup = (order.items || [])
+            .map((item) => `
+                <li class="receipt-thermal-item">
+                    <span class="receipt-thermal-item-qty">${escapeHtml(item.quantity)}x</span>
+                    <span class="receipt-thermal-item-name">${escapeHtml(item.name)}</span>
+                    <strong class="receipt-thermal-item-price">${formatPrice(item.price * item.quantity)}</strong>
+                </li>
+            `)
+            .join("");
+
         return `
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <title>Kitchen Receipt</title>
-                <style>
-                    body { font-family: Arial, sans-serif; color: #111; margin: 24px; }
-                    h1, h2, p { margin: 0 0 8px; }
-                    .topline { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-                    .badge { padding: 6px 10px; border-radius: 999px; background: #dcfce7; color: #166534; font-weight: bold; font-size: 12px; }
-                    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; margin: 18px 0; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 18px; }
-                    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #ddd; }
-                    .note-box { margin-top: 18px; padding: 12px; border: 1px solid #ddd; border-radius: 10px; }
-                    .total { margin-top: 16px; font-size: 20px; font-weight: bold; }
-                </style>
-            </head>
-            <body>
-                <div class="topline">
-                    <div>
-                        <div style="display:flex;align-items:center;gap:14px;">
-                            ${logoMarkup}
-                            <div>
-                                <h1>${escapeHtml(branding.restaurantName)}</h1>
-                                <p>Order Receipt</p>
-                            </div>
-                        </div>
-                    </div>
-                    <span class="badge">${escapeHtml(order.status || "Paid")}</span>
+            <div class="receipt-pos receipt-pos-thermal">
+                ${receiptBranding}
+                <div class="receipt-divider receipt-divider-thermal"></div>
+                <h5 class="receipt-thermal-title">SALES RECEIPT</h5>
+                <div class="receipt-divider receipt-divider-thermal"></div>
+                <div class="receipt-thermal-meta">
+                    <span>${escapeHtml(order.reference)}</span>
+                    <span>${escapeHtml(order.date || "-")}</span>
                 </div>
-                <p>${escapeHtml(order.reference)}</p>
-                <div class="grid">
-                    <p><strong>Date:</strong> ${escapeHtml(order.date || "-")}</p>
-                    <p><strong>Phone:</strong> ${escapeHtml(order.customerPhone || "-")}</p>
-                    <p><strong>Email:</strong> ${escapeHtml(order.email || "-")}</p>
-                    <p><strong>Area:</strong> ${escapeHtml(order.deliveryArea || "-")}</p>
-                    <p><strong>Delivery Fee:</strong> ${formatPrice(order.deliveryFee || 0)}</p>
-                    <p><strong>Service Fee:</strong> ${formatPrice(order.serviceFee || 0)}</p>
-                </div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Item</th>
-                            <th>Qty</th>
-                            <th>Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>${itemsMarkup}</tbody>
-                </table>
-                <div class="note-box">
-                    <p><strong>Drop-off:</strong> ${escapeHtml(order.deliveryLocation || "Not provided")}</p>
-                    <p><strong>Order Note:</strong> ${escapeHtml(order.orderNote || "No special instruction")}</p>
-                </div>
-                <p class="total">Total Paid: ${formatPrice(order.total || 0)}</p>
-            </body>
-            </html>
+            </div>
+            <div class="receipt-thermal-table-head">
+                <span>Qty</span>
+                <span>Item Description</span>
+                <span>Price</span>
+            </div>
+            <div class="receipt-divider receipt-divider-thermal"></div>
+            <div class="receipt-section receipt-section-tight">
+                <ul class="receipt-items-list receipt-items-list-thermal">${itemsMarkup}</ul>
+            </div>
+            <p class="receipt-thermal-count">${escapeHtml(totalItems)} item(s) sold</p>
+            <div class="receipt-divider receipt-divider-thermal"></div>
+            <div class="receipt-breakdown receipt-breakdown-thermal">
+                <p><span>Sub Total:</span><strong>${formatPrice(subtotal)}</strong></p>
+                <p><span>Delivery Fee:</span><strong>${formatPrice(order.deliveryFee || 0)}</strong></p>
+                <p><span>Service Fee:</span><strong>${formatPrice(order.serviceFee || 0)}</strong></p>
+            </div>
+            <div class="receipt-divider receipt-divider-thermal"></div>
+            <div class="receipt-total-row receipt-total-row-pos receipt-total-row-thermal">
+                <span>Total:</span>
+                <strong>${formatPrice(order.total || 0)}</strong>
+            </div>
+            <div class="receipt-thermal-details">
+                <p><strong>Type:</strong> <span>${escapeHtml(fulfillmentLabel)}</span></p>
+                <p><strong>Phone:</strong> <span>${escapeHtml(order.customerPhone || "-")}</span></p>
+                <p><strong>Email:</strong> <span>${escapeHtml(order.email || "-")}</span></p>
+                <p><strong>Area:</strong> <span>${escapeHtml(order.deliveryArea || fulfillmentLabel)}</span></p>
+                <p><strong>Handled By:</strong> <span>${escapeHtml(order.attendedBy || "Waiting")}</span></p>
+                <p><strong>Drop-off:</strong> <span>${escapeHtml(order.deliveryLocation || (fulfillmentLabel === "Pickup" ? "Customer pickup" : "Not provided"))}</span></p>
+                <p><strong>Note:</strong> <span>${escapeHtml(order.orderNote || "No special instruction")}</span></p>
+            </div>
+            <div class="receipt-divider receipt-divider-thermal"></div>
+            <p class="receipt-thank-you receipt-thank-you-thermal">THANK YOU</p>
         `;
     }
 
-    function printOrderReceipt(order) {
-        const receiptWindow = window.open("", "_blank", "width=900,height=700");
+    function getReceiptPrintDocument(order) {
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Receipt ${escapeHtml(order.reference)}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css?v=20260512e"><style>@page{size:80mm auto;margin:1mm}body{margin:0;padding:0;background:#fff;color:#111;font-family:Poppins,Arial,sans-serif}.print-shell{width:72mm;margin:0 auto;zoom:.9}.print-shell .receipt-card{margin-top:0;padding:5px 5px 3px;border:none;border-radius:0;background:#fcfcfc;box-shadow:none}.print-shell .receipt-pos{width:min(100%,280px);gap:3px;font-size:10px}.print-shell .receipt-logo{width:50px;height:50px;margin:0 auto 3px}.print-shell .receipt-thermal-brand h4{font-size:13px;line-height:1}.print-shell .receipt-thermal-contact{font-size:8px;line-height:1.05}.print-shell .receipt-kicker{margin-top:1px;font-size:8px;letter-spacing:.06em}.print-shell .receipt-divider{margin:3px 0}.print-shell .receipt-thermal-title{font-size:14px;margin:1px 0}.print-shell .receipt-thermal-meta{font-size:8px;gap:3px}.print-shell .receipt-thermal-table-head,.print-shell .receipt-thermal-item{grid-template-columns:24px 1fr auto;gap:4px}.print-shell .receipt-thermal-table-head{font-size:8px}.print-shell .receipt-thermal-item{padding:2px 0;font-size:9px}.print-shell .receipt-thermal-count{margin:3px 0;font-size:9px}.print-shell .receipt-breakdown{gap:1px}.print-shell .receipt-breakdown p{font-size:9px;gap:4px}.print-shell .receipt-total-row{margin-top:3px;padding-top:3px;font-size:12px;gap:4px}.print-shell .receipt-total-row strong{font-size:16px}.print-shell .receipt-thermal-details{gap:1px}.print-shell .receipt-thermal-details p{font-size:8px;gap:3px;line-height:1}.print-shell .receipt-thank-you{margin:4px 0 3px;font-size:12px}.receipt-footer-meta{margin-top:3px;padding-top:3px;border-top:1px dashed #777;display:flex;justify-content:space-between;gap:3px;font-size:7px;font-family:'Courier New',monospace;page-break-inside:avoid}.receipt-footer-meta span:last-child{text-align:right}@media print{body{padding:0}.print-shell{width:72mm;zoom:.9}}</style></head><body><div class="print-shell"><section class="receipt-card">${buildReceipt(order)}<div class="receipt-footer-meta"><span>${escapeHtml(order.reference)}</span><span>${escapeHtml(order.date || "-")}</span></div></section></div></body></html>`;
+    }
 
-        if (!receiptWindow) {
-            setStatus("Allow popups in the browser to print receipts.", "error");
+    function printOrderReceipt(order) {
+        const documentMarkup = getReceiptPrintDocument(order);
+        const frame = document.createElement("iframe");
+        frame.style.position = "fixed";
+        frame.style.right = "0";
+        frame.style.bottom = "0";
+        frame.style.width = "0";
+        frame.style.height = "0";
+        frame.style.border = "0";
+        frame.setAttribute("aria-hidden", "true");
+        document.body.appendChild(frame);
+
+        const frameWindow = frame.contentWindow;
+
+        if (!frameWindow) {
+            if (frame.parentNode) {
+                frame.parentNode.removeChild(frame);
+            }
+            setStatus("Printing is not available right now. Please try again.", "error");
             return;
         }
 
-        receiptWindow.document.open();
-        receiptWindow.document.write(buildOrderReceiptMarkup(order));
-        receiptWindow.document.close();
-        receiptWindow.focus();
-        receiptWindow.print();
+        frame.onload = () => {
+            frameWindow.focus();
+            frameWindow.print();
+            window.setTimeout(() => {
+                if (frame.parentNode) {
+                    frame.parentNode.removeChild(frame);
+                }
+            }, 1200);
+        };
+
+        frame.srcdoc = documentMarkup;
     }
 
     function playNewOrderAlert() {
@@ -717,7 +970,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <strong>${escapeHtml(order.reference)}</strong>
                     <span>${formatPrice(order.total || 0)}</span>
                 </div>
-                <p>${order.customerPhone || "-"} • ${order.deliveryArea || "-"}</p>
+                <p>${escapeHtml(getFulfillmentLabel(order))} • ${escapeHtml(order.customerPhone || "-")} • ${escapeHtml(order.deliveryArea || "-")}</p>
                 <small>${escapeHtml(order.date || "-")}</small>
             `;
 
@@ -760,8 +1013,8 @@ document.addEventListener("DOMContentLoaded", () => {
             actionCell.appendChild(createOrderActions(order));
             tableRow.innerHTML = `
                 <td>${escapeHtml(order.reference)}</td>
-                <td>${escapeHtml(order.customerPhone || "-")}</td>
-                <td>${escapeHtml(order.deliveryArea || "-")}</td>
+                <td>${escapeHtml(order.customerPhone || "-")}<br><small>${escapeHtml(order.attendedBy || "Waiting")}</small></td>
+                <td>${escapeHtml(getFulfillmentLabel(order))}<br><small>${escapeHtml(order.deliveryArea || "-")}</small></td>
                 <td>${formatPrice(order.total || 0)}</td>
                 <td></td>
                 <td>${escapeHtml(order.date || "-")}</td>
@@ -776,7 +1029,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 recentActionCell.appendChild(createOrderActions(order));
                 recentRow.innerHTML = `
                     <td>${escapeHtml(order.reference)}</td>
-                    <td>${escapeHtml(itemsText || "-")}</td>
+                    <td>${escapeHtml(itemsText || "-")}<br><small>${escapeHtml(order.attendedBy || "Waiting")}</small></td>
                     <td>${formatPrice(order.total || 0)}</td>
                     <td></td>
                     <td>${escapeHtml(order.date || "-")}</td>
@@ -809,9 +1062,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
                 <div class="receipt-grid">
                     <p><strong>Date:</strong> ${escapeHtml(order.date || "-")}</p>
+                    <p><strong>Type:</strong> ${escapeHtml(getFulfillmentLabel(order))}</p>
                     <p><strong>Phone:</strong> ${escapeHtml(order.customerPhone || "-")}</p>
                     <p><strong>Email:</strong> ${escapeHtml(order.email || "-")}</p>
-                    <p><strong>Area:</strong> ${escapeHtml(order.deliveryArea || "-")}</p>
+                    <p><strong>Area:</strong> ${escapeHtml(order.deliveryArea || getFulfillmentLabel(order))}</p>
+                    <p><strong>Handled By:</strong> ${escapeHtml(order.attendedBy || "Waiting")}</p>
                     <p><strong>Delivery Fee:</strong> ${formatPrice(order.deliveryFee || 0)}</p>
                     <p><strong>Total Paid:</strong> ${formatPrice(order.total || 0)}</p>
                 </div>
@@ -823,7 +1078,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <ul class="receipt-items-list">${itemsMarkup}</ul>
                 </div>
                 <div class="receipt-section receipt-meta-box">
-                    <p><strong>Drop-off:</strong> ${escapeHtml(order.deliveryLocation || "Not provided")}</p>
+                    <p><strong>Drop-off:</strong> ${escapeHtml(order.deliveryLocation || (getFulfillmentLabel(order) === "Pickup" ? "Customer pickup" : "Not provided"))}</p>
                     <p><strong>Order Note:</strong> ${escapeHtml(order.orderNote || "No special instruction")}</p>
                 </div>
             `;
@@ -862,7 +1117,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <strong>${escapeHtml(order.reference)}</strong>
                     <span>${formatPrice(order.total || 0)}</span>
                 </div>
-                <p>${escapeHtml(order.customerPhone || "-")} • ${escapeHtml(order.deliveryArea || "-")}</p>
+                <p>${escapeHtml(getFulfillmentLabel(order))} • ${escapeHtml(order.customerPhone || "-")} • ${escapeHtml(order.deliveryArea || "-")}</p>
                 <small>${escapeHtml(order.date || "-")}</small>
             `;
 
@@ -907,6 +1162,25 @@ document.addEventListener("DOMContentLoaded", () => {
         populateCategoryEditor(siteData.categories || []);
         populateMenuEditor(siteData.menuItems || []);
         populateZoneEditor(siteData.deliveryZones || []);
+    }
+
+    async function loadUsers() {
+        const data = await fetchJson("/api/admin/users");
+        renderUsers(data.users || []);
+        return data.users || [];
+    }
+
+    async function loadSalesReport() {
+        const range = adminSalesRangeEl.value || "today";
+        const data = await fetchJson(`/api/admin/sales-report?range=${encodeURIComponent(range)}`);
+        renderSalesReport(data.report || salesReportCache);
+        return data.report || salesReportCache;
+    }
+
+    async function loadClosingHistory() {
+        const data = await fetchJson("/api/admin/closing-history");
+        renderClosingHistory(data.history || []);
+        return data.history || [];
     }
 
     function renderBackups(backups) {
@@ -962,11 +1236,38 @@ document.addEventListener("DOMContentLoaded", () => {
     async function refreshDashboard() {
         try {
             setStatus("Loading dashboard...", "info");
-            await Promise.all([loadSiteData(), loadOrders(), loadMonitoring()]);
+            await Promise.all([loadSiteData(), loadOrders(), loadMonitoring(), loadUsers(), loadSalesReport(), loadClosingHistory()]);
             setStatus("Dashboard is up to date.", "success");
         } catch (error) {
             setStatus(error.message, "error");
         }
+    }
+
+    async function autoRefreshOrders() {
+        if (isAutoRefreshing || document.hidden) {
+            return;
+        }
+
+        // Background refresh keeps the live operations view current without forcing a full dashboard reload.
+        isAutoRefreshing = true;
+
+        try {
+            await Promise.all([loadOrders(), loadSalesReport()]);
+        } catch (error) {
+            // Keep background refresh silent unless the page is actively being used.
+        } finally {
+            isAutoRefreshing = false;
+        }
+    }
+
+    function startAutoRefresh() {
+        if (autoRefreshTimerId) {
+            window.clearInterval(autoRefreshTimerId);
+        }
+
+        autoRefreshTimerId = window.setInterval(() => {
+            autoRefreshOrders();
+        }, 5000);
     }
 
     async function checkSession() {
@@ -995,6 +1296,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!wrap) {
             adminNotificationPanelEl.hidden = true;
+        }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) {
+            autoRefreshOrders();
         }
     });
 
@@ -1101,6 +1408,83 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
+    createStaffUserBtn.addEventListener("click", async () => {
+        try {
+            const displayName = readInput("staff-display-name");
+            const username = readInput("staff-username");
+            const password = document.getElementById("staff-password").value.trim();
+
+            if (!displayName || !username || !password) {
+                throw new Error("Enter full name, username, and password for the new user.");
+            }
+
+            setStatus("Creating user...", "info");
+            const response = await fetchJson("/api/admin/users", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    displayName,
+                    username,
+                    password
+                })
+            });
+
+            renderUsers(response.users || []);
+            resetStaffUserForm();
+            setStatus(response.message || "User created successfully.", "success");
+        } catch (error) {
+            setStatus(error.message, "error");
+        }
+    });
+
+    adminSalesRangeEl.addEventListener("change", async () => {
+        try {
+            setStatus("Loading sales report...", "info");
+            await loadSalesReport();
+            setStatus("Sales report is up to date.", "success");
+        } catch (error) {
+            setStatus(error.message, "error");
+        }
+    });
+
+    adminSalesRefreshBtn.addEventListener("click", async () => {
+        try {
+            setStatus("Refreshing sales report...", "info");
+            await loadSalesReport();
+            setStatus("Sales report is up to date.", "success");
+        } catch (error) {
+            setStatus(error.message, "error");
+        }
+    });
+
+    adminSalesPrintBtn.addEventListener("click", () => {
+        printSalesReport(salesReportCache);
+    });
+
+    adminSalesDownloadBtn.addEventListener("click", () => {
+        printSalesReport(salesReportCache);
+    });
+
+    adminSalesClosingBtn.addEventListener("click", async () => {
+        try {
+            setStatus("Preparing daily closing summary...", "info");
+            const data = await fetchJson("/api/admin/close-day", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                }
+            });
+            const todayReport = data.report || salesReportCache;
+            printClosingSummary(todayReport);
+            await Promise.all([loadOrders(), loadSalesReport(), loadClosingHistory()]);
+            setStatus(data.message || "Daily closing summary is ready.", "success");
+        } catch (error) {
+            setStatus(error.message, "error");
+        }
+    });
+
     saveSiteDataBtn.addEventListener("click", async () => {
         try {
             setStatus("Saving changes...", "info");
@@ -1153,4 +1537,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
     setActiveSection("dashboard");
     checkSession();
+    startAutoRefresh();
 });

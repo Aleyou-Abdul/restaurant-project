@@ -369,6 +369,47 @@ nav a:hover {
     color: #facc15;
 }
 
+.company-brand-lockup {
+    display: inline-flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 22px;
+    padding: 14px 18px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.company-brand-logo {
+    width: 82px;
+    height: 82px;
+    border-radius: 24px;
+    object-fit: contain;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.22);
+    background: rgba(255, 255, 255, 0.12);
+    padding: 8px;
+}
+
+.company-brand-copy {
+    display: grid;
+    gap: 5px;
+}
+
+.company-brand-copy strong {
+    color: #f8fff7;
+    font-size: clamp(22px, 3vw, 32px);
+    line-height: 1.05;
+}
+
+.company-brand-copy span {
+    color: rgba(236, 253, 245, 0.78);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 700;
+}
+
 .company-hero h1 {
     margin: 0 0 12px;
     max-width: 780px;
@@ -465,6 +506,26 @@ nav a:hover {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(12px);
+}
+
+.company-panel-visual {
+    display: grid;
+    place-items: center;
+    padding: 14px;
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.22), transparent 38%),
+        radial-gradient(circle at 78% 48%, rgba(132, 204, 22, 0.22), transparent 34%),
+        rgba(8, 18, 11, 0.34);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    min-height: 260px;
+}
+
+.company-panel-logo {
+    width: min(100%, 360px);
+    max-height: 320px;
+    object-fit: contain;
+    filter: drop-shadow(0 18px 32px rgba(15, 23, 42, 0.28));
 }
 
 .company-panel-label,
@@ -800,6 +861,48 @@ nav a:hover {
     margin-bottom: 24px;
 }
 
+.fulfillment-box {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 22px;
+    text-align: left;
+}
+
+.fulfillment-title {
+    margin: 0;
+    font-weight: 700;
+}
+
+.fulfillment-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.fulfillment-option {
+    padding: 13px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    color: var(--color-dark);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.fulfillment-option.is-active {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.fulfillment-help {
+    min-height: 20px;
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 14px;
+}
+
 .delivery-box {
     display: flex;
     flex-direction: column;
@@ -844,10 +947,6 @@ nav a:hover {
     align-items: center;
     gap: 14px;
     flex-wrap: wrap;
-}
-
-#use-location-btn {
-    background: linear-gradient(45deg, #1a4d7a, #2b79b9);
 }
 
 .delivery-status {
@@ -1060,6 +1159,19 @@ nav a:hover {
     margin: 0;
 }
 
+.receipt-pos {
+    width: min(100%, 320px);
+    margin: 0 auto;
+    display: grid;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.receipt-pos-thermal {
+    font-family: "Courier New", monospace;
+    width: min(100%, 340px);
+}
+
 .receipt-topline {
     display: flex;
     justify-content: space-between;
@@ -1088,6 +1200,13 @@ nav a:hover {
     gap: 14px;
 }
 
+.receipt-branding-stack {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+    gap: 8px;
+}
+
 .receipt-logo {
     width: 58px;
     height: 58px;
@@ -1095,6 +1214,50 @@ nav a:hover {
     border-radius: 16px;
     border: 1px solid var(--color-border);
     background: #fff;
+}
+
+.receipt-branding-stack .receipt-logo {
+    width: 72px;
+    height: 72px;
+    border-radius: 999px;
+}
+
+.receipt-thermal-brand {
+    text-align: center;
+}
+
+.receipt-logo-thermal {
+    width: 84px;
+    height: 84px;
+    border-radius: 999px;
+    margin: 0 auto 8px;
+}
+
+.receipt-thermal-brand h4 {
+    margin: 0;
+    font-size: 21px;
+    text-transform: uppercase;
+    line-height: 1.15;
+}
+
+.receipt-kicker-thermal {
+    margin: 4px 0 0;
+    color: var(--color-muted);
+    letter-spacing: 0.14em;
+}
+
+.receipt-thermal-contact {
+    margin: 2px 0 0;
+    color: var(--color-muted);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.receipt-thermal-title {
+    margin: 4px 0;
+    text-align: center;
+    font-size: 22px;
+    letter-spacing: 0.04em;
 }
 
 .receipt-badge {
@@ -1120,6 +1283,10 @@ nav a:hover {
 
 .receipt-section {
     margin-top: 14px;
+}
+
+.receipt-section-tight {
+    margin-top: 0;
 }
 
 .receipt-section-title {
@@ -1155,6 +1322,59 @@ nav a:hover {
     background: #f8fafc;
 }
 
+.receipt-meta-box-pos,
+.receipt-breakdown {
+    display: grid;
+    gap: 8px;
+}
+
+.receipt-meta-box-pos p,
+.receipt-breakdown p {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.receipt-meta-box-pos p span,
+.receipt-breakdown p strong {
+    text-align: right;
+}
+
+.receipt-breakdown p {
+    font-size: 14px;
+}
+
+.receipt-divider {
+    border-top: 1px dashed #cbd5e1;
+}
+
+.receipt-divider-thermal {
+    border-top-color: #94a3b8;
+    margin: 8px 0;
+}
+
+.receipt-chip-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.receipt-reference {
+    color: var(--color-muted);
+    font-size: 12px;
+    text-align: right;
+    word-break: break-word;
+}
+
+.receipt-thermal-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12px;
+}
+
 .receipt-total-row {
     display: flex;
     justify-content: space-between;
@@ -1169,6 +1389,122 @@ nav a:hover {
 .receipt-total-row strong {
     font-size: 22px;
 }
+
+.receipt-total-row-pos {
+    margin-top: 8px;
+}
+
+.receipt-thank-you {
+    margin: 4px 0 0;
+    text-align: center;
+    color: var(--color-muted);
+    font-size: 13px;
+}
+
+.receipt-thank-you-thermal {
+    margin: 12px 0 10px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--color-dark);
+}
+
+.receipt-grid-pos {
+    grid-template-columns: 1fr;
+    gap: 8px;
+}
+
+.receipt-grid-pos p {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.receipt-grid-pos p span {
+    flex: 1;
+    text-align: right;
+}
+
+.receipt-grid-pos p strong,
+.receipt-meta-box-pos p strong {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--color-muted);
+}
+
+.receipt-card .receipt-header h3::after {
+    content: " (POS Size)";
+    color: var(--color-muted);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.receipt-thermal-table-head,
+.receipt-thermal-item {
+    display: grid;
+    grid-template-columns: 44px 1fr auto;
+    gap: 10px;
+    align-items: start;
+}
+
+.receipt-thermal-table-head {
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.receipt-items-list-thermal {
+    display: grid;
+    gap: 0;
+}
+
+.receipt-thermal-item {
+    padding: 7px 0;
+    border-bottom: 1px dotted #cbd5e1;
+    font-size: 13px;
+}
+
+.receipt-thermal-item-price {
+    white-space: nowrap;
+}
+
+.receipt-thermal-count {
+    margin: 10px 0;
+    text-align: center;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.receipt-breakdown-thermal p {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+}
+
+.receipt-total-row-thermal {
+    font-size: 22px;
+}
+
+.receipt-total-row-thermal strong {
+    font-size: 30px;
+}
+
+.receipt-thermal-details {
+    display: grid;
+    gap: 7px;
+    font-size: 12px;
+}
+
+.receipt-thermal-details p {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+}
+
+.receipt-thermal-details p span {
+    text-align: right;
+}
+
 
 .payment-modal {
     position: fixed;
@@ -1600,6 +1936,20 @@ nav a:hover {
     word-break: break-word;
 }
 
+.admin-block-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 8px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font-size: 11px;
+    font-weight: 700;
+    vertical-align: middle;
+}
+
 .admin-log-item.is-error {
     border-color: rgba(220, 38, 38, 0.25);
     background: #fff5f5;
@@ -1792,6 +2142,61 @@ nav a:hover {
     grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.admin-user-row {
+    grid-template-columns: minmax(0, 1.4fr) auto;
+    align-items: center;
+}
+
+.admin-user-meta {
+    display: grid;
+    gap: 4px;
+}
+
+.admin-user-meta strong,
+.admin-user-meta span,
+.admin-user-meta small {
+    margin: 0;
+}
+
+.admin-user-meta span,
+.admin-user-meta small {
+    color: #64748b;
+}
+
+.admin-auth-body {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.admin-auth-card {
+    width: min(460px, 100%);
+    display: grid;
+    gap: 12px;
+    padding: 28px;
+    border-radius: 22px;
+    background: #fff;
+    box-shadow: var(--shadow-soft);
+}
+
+.admin-auth-card h1,
+.admin-auth-card p {
+    margin: 0;
+}
+
+.admin-auth-card input {
+    padding: 12px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font: inherit;
+}
+
+.admin-auth-card button {
+    width: 100%;
+}
+
 .admin-helper-text {
     margin: 0 0 16px;
     color: #6b7280;
@@ -1878,6 +2283,20 @@ nav a:hover {
         width: 100%;
     }
 
+    .company-brand-lockup {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .company-brand-logo {
+        width: 72px;
+        height: 72px;
+    }
+
+    .company-panel-visual {
+        min-height: 220px;
+    }
+
     .footer-credit-link {
         margin-top: 8px;
     }
@@ -1937,6 +2356,10 @@ nav a:hover {
     }
 
     .admin-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-user-row {
         grid-template-columns: 1fr;
     }
 
@@ -2115,6 +2538,7 @@ nav a:hover {
 .hero-slide img {
     display: block;
     object-fit: cover;
+    object-position: center center;
     filter: saturate(0.95) contrast(0.92) brightness(0.45);
 }
 

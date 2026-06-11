@@ -1,6 +1,7 @@
 (function () {
     const STORAGE_KEY = "cart";
     const ORDER_NOTE_KEY = "orderNote";
+    const FULFILLMENT_TYPE_KEY = "fulfillmentType";
     const DELIVERY_AREA_KEY = "deliveryArea";
     const DELIVERY_LOCATION_KEY = "deliveryLocation";
     const CUSTOMER_PHONE_KEY = "customerPhone";
@@ -24,6 +25,14 @@
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
             .replace(/'/g, "&#39;");
+    }
+
+    function normalizeLookupValue(value) {
+        return String(value || "")
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "");
     }
 
     function getSafeImageSrc(value) {
@@ -58,7 +67,9 @@
         return {
             restaurantName: site.restaurantName || "My Restaurant",
             logoPath: site.logoPath || "",
-            heroSubtitle: site.heroSubtitle || "Fresh food, quick delivery, and easy ordering."
+            heroSubtitle: site.heroSubtitle || "Fresh food, quick delivery, and easy ordering.",
+            phone: site.phone || "",
+            location: site.location || ""
         };
     }
 
@@ -206,6 +217,18 @@
         localStorage.setItem(ORDER_NOTE_KEY, note);
     }
 
+    function getFulfillmentType() {
+        return localStorage.getItem(FULFILLMENT_TYPE_KEY) === "pickup" ? "pickup" : "delivery";
+    }
+
+    function saveFulfillmentType(type) {
+        localStorage.setItem(FULFILLMENT_TYPE_KEY, type === "pickup" ? "pickup" : "delivery");
+    }
+
+    function isPickupOrder() {
+        return getFulfillmentType() === "pickup";
+    }
+
     function getDeliveryArea() {
         return localStorage.getItem(DELIVERY_AREA_KEY) || "";
     }
@@ -247,6 +270,10 @@
     }
 
     function getDeliveryFee() {
+        if (isPickupOrder()) {
+            return 0;
+        }
+
         const zone = getSelectedZone();
         return zone ? zone.fee : 0;
     }
@@ -263,10 +290,16 @@
         return getCartSubtotal(cart) + getDeliveryFee() + getServiceFee();
     }
 
+    function getFulfillmentLabel(type) {
+        return type === "pickup" ? "Pickup" : "Delivery";
+    }
+
     function getMenuItemForCartItem(cartItem) {
         const menuItems = Array.isArray(siteData.menuItems) ? siteData.menuItems : [];
-        return menuItems.find((item) => item.id === cartItem.id) ||
-            menuItems.find((item) => item.name === cartItem.name) ||
+        const cartId = normalizeLookupValue(cartItem && cartItem.id);
+        const cartName = normalizeLookupValue(cartItem && cartItem.name);
+        return menuItems.find((item) => normalizeLookupValue(item.id) === cartId) ||
+            menuItems.find((item) => normalizeLookupValue(item.name) === cartName) ||
             null;
     }
 
@@ -274,11 +307,16 @@
         const cart = getCart();
         let didChange = false;
 
+        // The cart is reconciled against live menu stock so payment cannot go through on stale quantities.
         const nextCart = cart
             .map((cartItem) => {
                 const menuItem = getMenuItemForCartItem(cartItem);
 
-                if (!menuItem || menuItem.availability === "hidden" || menuItem.availability === "out-of-stock") {
+                if (!menuItem) {
+                    return cartItem;
+                }
+
+                if (menuItem.availability === "hidden" || menuItem.availability === "out-of-stock") {
                     didChange = true;
                     return null;
                 }
@@ -321,82 +359,107 @@
     function buildReceipt(order) {
         const branding = getBranding();
         const safeLogoPath = getSafeImageSrc(branding.logoPath);
-        const receiptBranding = safeLogoPath
-            ? `
-                <div class="receipt-branding">
-                    <img class="receipt-logo" src="${escapeHtml(safeLogoPath)}" alt="${escapeHtml(branding.restaurantName)}">
-                    <div>
-                        <p class="receipt-kicker">Order confirmed</p>
-                        <h4>${escapeHtml(branding.restaurantName)}</h4>
-                    </div>
-                </div>
-            `
-            : `
-                <div>
-                    <p class="receipt-kicker">Order confirmed</p>
-                    <h4>${escapeHtml(branding.restaurantName)}</h4>
-                </div>
-            `;
+        const subtotal = order.subtotal || order.total - (order.deliveryFee || 0) - (order.serviceFee || getServiceFee());
+        const totalItems = (order.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+        const fulfillmentType = order.fulfillmentType === "pickup" ? "pickup" : "delivery";
+        const fulfillmentLabel = getFulfillmentLabel(fulfillmentType);
+        const receiptBranding = `
+            <div class="receipt-thermal-brand">
+                ${safeLogoPath ? `<img class="receipt-logo receipt-logo-thermal" src="${escapeHtml(safeLogoPath)}" alt="${escapeHtml(branding.restaurantName)}">` : ""}
+                <h4>${escapeHtml(branding.restaurantName)}</h4>
+                ${branding.phone ? `<p class="receipt-thermal-contact">${escapeHtml(branding.phone)}</p>` : ""}
+                ${branding.location ? `<p class="receipt-thermal-contact">${escapeHtml(branding.location)}</p>` : ""}
+                <p class="receipt-kicker receipt-kicker-thermal">Order receipt</p>
+            </div>
+        `;
         const itemsMarkup = order.items.map((item) => `
-            <li class="receipt-item-row">
-                <span>${escapeHtml(item.name)} x${escapeHtml(item.quantity)}</span>
-                <strong>${formatPrice(item.price * item.quantity)}</strong>
+            <li class="receipt-thermal-item">
+                <span class="receipt-thermal-item-qty">${escapeHtml(item.quantity)}x</span>
+                <span class="receipt-thermal-item-name">${escapeHtml(item.name)}</span>
+                <strong class="receipt-thermal-item-price">${formatPrice(item.price * item.quantity)}</strong>
             </li>
         `).join("");
 
         return `
-            <div class="receipt-topline">
+            <div class="receipt-pos receipt-pos-thermal">
                 ${receiptBranding}
-                <span class="receipt-badge">Paid</span>
-            </div>
-            <div class="receipt-grid">
-                <p><strong>Reference:</strong> ${escapeHtml(order.reference)}</p>
-                <p><strong>Date:</strong> ${escapeHtml(order.date)}</p>
-                <p><strong>Phone:</strong> ${escapeHtml(order.customerPhone)}</p>
-                <p><strong>Email:</strong> ${escapeHtml(order.email)}</p>
-                <p><strong>Area:</strong> ${escapeHtml(order.deliveryArea)}</p>
-                <p><strong>Delivery Fee:</strong> ${formatPrice(order.deliveryFee)}</p>
-                <p><strong>Service Fee:</strong> ${formatPrice(order.serviceFee || getServiceFee())}</p>
-            </div>
-            <div class="receipt-section">
-                <div class="receipt-section-title">
-                    <strong>Items</strong>
-                    <span>${escapeHtml(order.items.length)} item(s)</span>
+                <div class="receipt-divider receipt-divider-thermal"></div>
+                <h5 class="receipt-thermal-title">SALES RECEIPT</h5>
+                <div class="receipt-divider receipt-divider-thermal"></div>
+                <div class="receipt-thermal-meta">
+                    <span>${escapeHtml(order.reference)}</span>
+                    <span>${escapeHtml(order.date)}</span>
                 </div>
-                <ul class="receipt-items-list">${itemsMarkup}</ul>
             </div>
-            <div class="receipt-section receipt-meta-box">
-                <p><strong>Drop-off:</strong> ${escapeHtml(order.deliveryLocation || "Not provided")}</p>
-                <p><strong>Order Note:</strong> ${escapeHtml(order.orderNote || "No special instruction")}</p>
+            <div class="receipt-thermal-table-head">
+                <span>Qty</span>
+                <span>Item Description</span>
+                <span>Price</span>
             </div>
-            <div class="receipt-total-row">
-                <span>Total Paid</span>
+            <div class="receipt-divider receipt-divider-thermal"></div>
+            <div class="receipt-section receipt-section-tight">
+                <ul class="receipt-items-list receipt-items-list-thermal">${itemsMarkup}</ul>
+            </div>
+            <p class="receipt-thermal-count">${escapeHtml(totalItems)} item(s) sold</p>
+            <div class="receipt-divider receipt-divider-thermal"></div>
+            <div class="receipt-breakdown receipt-breakdown-thermal">
+                <p><span>Sub Total:</span><strong>${formatPrice(subtotal)}</strong></p>
+                <p><span>Delivery Fee:</span><strong>${formatPrice(order.deliveryFee || 0)}</strong></p>
+                <p><span>Service Fee:</span><strong>${formatPrice(order.serviceFee || getServiceFee())}</strong></p>
+            </div>
+            <div class="receipt-divider receipt-divider-thermal"></div>
+            <div class="receipt-total-row receipt-total-row-pos receipt-total-row-thermal">
+                <span>Total:</span>
                 <strong>${formatPrice(order.total)}</strong>
             </div>
+            <div class="receipt-thermal-details">
+                <p><strong>Type:</strong> <span>${escapeHtml(fulfillmentLabel)}</span></p>
+                <p><strong>Phone:</strong> <span>${escapeHtml(order.customerPhone)}</span></p>
+                <p><strong>Email:</strong> <span>${escapeHtml(order.email)}</span></p>
+                <p><strong>Area:</strong> <span>${escapeHtml(order.deliveryArea || fulfillmentLabel)}</span></p>
+                <p><strong>Drop-off:</strong> <span>${escapeHtml(order.deliveryLocation || (fulfillmentType === "pickup" ? "Customer pickup" : "Not provided"))}</span></p>
+                <p><strong>Note:</strong> <span>${escapeHtml(order.orderNote || "No special instruction")}</span></p>
+            </div>
+            <div class="receipt-divider receipt-divider-thermal"></div>
+            <p class="receipt-thank-you receipt-thank-you-thermal">THANK YOU</p>
         `;
     }
 
     function getReceiptPrintDocument(receipt) {
-        const branding = getBranding();
-        const safeLogoPath = getSafeImageSrc(branding.logoPath);
-        const printLogo = safeLogoPath
-            ? `<img src="${escapeHtml(safeLogoPath)}" alt="${escapeHtml(branding.restaurantName)}" style="width:64px;height:64px;object-fit:cover;border-radius:16px;border:1px solid #ddd;">`
-            : "";
-        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Receipt ${escapeHtml(receipt.reference)}</title><style>body{font-family:Poppins,Arial,sans-serif;margin:0;padding:32px;color:#111;background:#fff}.sheet{max-width:720px;margin:0 auto;border:1px solid #ddd;border-radius:14px;padding:28px}h1,h2,p{margin-top:0}.muted{color:#666}.brand{display:flex;align-items:center;gap:14px;margin-bottom:12px}.receipt-topline{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:18px}.receipt-branding{display:flex;align-items:center;gap:14px}.receipt-logo{width:56px;height:56px;object-fit:cover;border-radius:14px;border:1px solid #ddd}.receipt-kicker{color:#0f766e;text-transform:uppercase;letter-spacing:.08em;font-size:12px;margin-bottom:6px}.receipt-badge{display:inline-flex;align-items:center;justify-content:center;padding:8px 14px;border-radius:999px;background:#ecfdf5;color:#0a7a28;font-weight:700}ul{margin:8px 0 0;padding-left:0;list-style:none}.receipt-item-row{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid #eee}.receipt-total-row{display:flex;justify-content:space-between;align-items:center;margin-top:20px;padding-top:16px;border-top:2px solid #111;font-size:18px}.receipt-meta-box{padding:14px 16px;border-radius:12px;background:#f8fafc}@media print{body{padding:0}.sheet{border:none;border-radius:0;padding:0}}</style></head><body><div class="sheet"><div class="brand">${printLogo}<div><h1>${escapeHtml(branding.restaurantName)}</h1><p class="muted">Payment Receipt</p></div></div>${buildReceipt(receipt)}</div></body></html>`;
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Receipt ${escapeHtml(receipt.reference)}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css?v=20260512e"><style>@page{size:80mm auto;margin:1mm}body{margin:0;padding:0;background:#fff;color:#111;font-family:Poppins,Arial,sans-serif}.print-shell{width:72mm;margin:0 auto;zoom:.9}.print-shell .receipt-card{margin-top:0;padding:5px 5px 3px;border:none;border-radius:0;background:#fcfcfc;box-shadow:none}.print-shell .receipt-pos{width:min(100%,280px);gap:3px;font-size:10px}.print-shell .receipt-logo{width:50px;height:50px;margin:0 auto 3px}.print-shell .receipt-thermal-brand h4{font-size:13px;line-height:1}.print-shell .receipt-thermal-contact{font-size:8px;line-height:1.05}.print-shell .receipt-kicker{margin-top:1px;font-size:8px;letter-spacing:.06em}.print-shell .receipt-divider{margin:3px 0}.print-shell .receipt-thermal-title{font-size:14px;margin:1px 0}.print-shell .receipt-thermal-meta{font-size:8px;gap:3px}.print-shell .receipt-thermal-table-head,.print-shell .receipt-thermal-item{grid-template-columns:24px 1fr auto;gap:4px}.print-shell .receipt-thermal-table-head{font-size:8px}.print-shell .receipt-thermal-item{padding:2px 0;font-size:9px}.print-shell .receipt-thermal-count{margin:3px 0;font-size:9px}.print-shell .receipt-breakdown{gap:1px}.print-shell .receipt-breakdown p{font-size:9px;gap:4px}.print-shell .receipt-total-row{margin-top:3px;padding-top:3px;font-size:12px;gap:4px}.print-shell .receipt-total-row strong{font-size:16px}.print-shell .receipt-thermal-details{gap:1px}.print-shell .receipt-thermal-details p{font-size:8px;gap:3px;line-height:1}.print-shell .receipt-thank-you{margin:4px 0 3px;font-size:12px}.receipt-footer-meta{margin-top:3px;padding-top:3px;border-top:1px dashed #777;display:flex;justify-content:space-between;gap:3px;font-size:7px;font-family:'Courier New',monospace;page-break-inside:avoid}.receipt-footer-meta span:last-child{text-align:right}@media print{body{padding:0}.print-shell{width:72mm;zoom:.9}}</style></head><body><div class="print-shell"><section class="receipt-card">${buildReceipt(receipt)}<div class="receipt-footer-meta"><span>${escapeHtml(receipt.reference)}</span><span>${escapeHtml(receipt.date)}</span></div></section></div></body></html>`;
     }
 
-    function openReceiptPrintView(receipt) {
-        const printWindow = window.open("", "_blank", "width=900,height=700");
+    function printReceiptDocument(receipt) {
+        const documentMarkup = getReceiptPrintDocument(receipt);
+        const frame = document.createElement("iframe");
+        frame.style.position = "fixed";
+        frame.style.right = "0";
+        frame.style.bottom = "0";
+        frame.style.width = "0";
+        frame.style.height = "0";
+        frame.style.border = "0";
+        frame.setAttribute("aria-hidden", "true");
+        document.body.appendChild(frame);
 
-        if (!printWindow) {
-            alert("Please allow popups so the receipt can open.");
-            return null;
+        const frameWindow = frame.contentWindow;
+
+        if (!frameWindow) {
+            document.body.removeChild(frame);
+            alert("Printing is not available right now. Please try again.");
+            return;
         }
 
-        printWindow.document.open();
-        printWindow.document.write(getReceiptPrintDocument(receipt));
-        printWindow.document.close();
-        return printWindow;
+        frame.onload = () => {
+            frameWindow.focus();
+            frameWindow.print();
+            window.setTimeout(() => {
+                if (frame.parentNode) {
+                    frame.parentNode.removeChild(frame);
+                }
+            }, 1200);
+        };
+
+        frame.srcdoc = documentMarkup;
     }
 
     function renderReceipt(receipt) {
@@ -422,6 +485,8 @@
         const emptyCartEl = document.getElementById("empty-cart");
         const payBtn = document.getElementById("pay-btn");
         const cartSummaryEl = document.querySelector(".cart-summary");
+        const fulfillmentBox = document.querySelector(".fulfillment-box");
+        const fulfillmentHelpEl = document.getElementById("fulfillment-help");
         const deliveryBox = document.querySelector(".delivery-box");
         const orderNoteBox = document.querySelector(".order-note-box");
         const orderSuccessBannerEl = document.getElementById("order-success-banner");
@@ -429,9 +494,17 @@
         const receipt = getLastReceipt();
         const cart = syncCartWithStock();
         const orderingWindow = getOrderingWindowState();
+        const fulfillmentType = getFulfillmentType();
+        const isPickup = fulfillmentType === "pickup";
 
         cartItemsEl.innerHTML = "";
         updateCartCount(cart);
+        document.querySelectorAll(".fulfillment-option").forEach((button) => {
+            button.classList.toggle("is-active", button.dataset.fulfillmentType === fulfillmentType);
+        });
+        fulfillmentHelpEl.textContent = isPickup
+            ? "Pickup orders only include food total and service fee."
+            : "Delivery orders include the selected area fee.";
         cartOrderWindowStatusEl.textContent = orderingWindow.statusText;
         cartOrderWindowStatusEl.className = `payment-status ${orderingWindow.canOrder ? "success" : "error"}`;
         payBtn.disabled = !orderingWindow.canOrder;
@@ -441,6 +514,7 @@
             emptyCartEl.style.display = receipt ? "none" : "block";
             payBtn.style.display = "none";
             cartSummaryEl.style.display = receipt ? "flex" : "flex";
+            fulfillmentBox.style.display = "none";
             deliveryBox.style.display = "none";
             orderNoteBox.style.display = "none";
             orderSuccessBannerEl.hidden = !receipt;
@@ -457,7 +531,8 @@
         emptyCartEl.style.display = "none";
         payBtn.style.display = "inline-block";
         cartSummaryEl.style.display = "flex";
-        deliveryBox.style.display = "block";
+        fulfillmentBox.style.display = "grid";
+        deliveryBox.style.display = isPickup ? "none" : "block";
         orderNoteBox.style.display = "block";
         orderSuccessBannerEl.hidden = true;
 
@@ -506,7 +581,7 @@
         const payBtn = document.getElementById("pay-btn");
         const deliveryAreaEl = document.getElementById("delivery-area");
         const deliveryLocationEl = document.getElementById("delivery-location");
-        const useLocationBtn = document.getElementById("use-location-btn");
+        const fulfillmentOptionBtns = document.querySelectorAll(".fulfillment-option");
         const deliveryStatusEl = document.getElementById("delivery-status");
         const customerPhoneEl = document.getElementById("customer-phone");
         const customerEmailEl = document.getElementById("customer-email");
@@ -548,30 +623,18 @@
 
         orderNoteEl.addEventListener("input", () => saveOrderNote(orderNoteEl.value.trim()));
         customerPhoneEl.addEventListener("input", () => saveCustomerPhone(customerPhoneEl.value.trim()));
+        fulfillmentOptionBtns.forEach((button) => {
+            button.addEventListener("click", () => {
+                saveFulfillmentType(button.dataset.fulfillmentType);
+                setDeliveryStatus("", "");
+                renderCart();
+            });
+        });
         deliveryAreaEl.addEventListener("change", () => {
             saveDeliveryArea(deliveryAreaEl.value);
             renderCart();
         });
         deliveryLocationEl.addEventListener("input", () => saveDeliveryLocation(deliveryLocationEl.value.trim()));
-
-        useLocationBtn.addEventListener("click", () => {
-            if (!navigator.geolocation) {
-                setDeliveryStatus("Current location is not supported on this device.", "error");
-                return;
-            }
-
-            setDeliveryStatus("Getting your current location...", "info");
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    const { latitude, longitude } = position.coords;
-                    const locationText = `Current location pinned: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                    deliveryLocationEl.value = locationText;
-                    saveDeliveryLocation(locationText);
-                    setDeliveryStatus("Current location added. Please still choose your delivery area for the fee.", "success");
-                },
-                () => setDeliveryStatus("Could not get your location. You can still type your address manually.", "error")
-            );
-        });
 
         closePaymentModalBtn.addEventListener("click", hidePaymentModal);
 
@@ -581,11 +644,7 @@
                 return;
             }
 
-            const printWindow = openReceiptPrintView(receipt);
-            if (printWindow) {
-                printWindow.focus();
-                printWindow.print();
-            }
+            printReceiptDocument(receipt);
         });
 
         downloadReceiptBtn.addEventListener("click", () => {
@@ -594,11 +653,7 @@
                 return;
             }
 
-            const printWindow = openReceiptPrintView(receipt);
-            if (printWindow) {
-                printWindow.focus();
-                printWindow.print();
-            }
+            printReceiptDocument(receipt);
         });
 
         cartItemsEl.addEventListener("click", (event) => {
@@ -664,18 +719,23 @@
             }
 
             const cart = getCart();
+            const fulfillmentType = getFulfillmentType();
+            const fulfillmentLabel = getFulfillmentLabel(fulfillmentType);
             const total = getCartTotal(cart);
             const customerPhone = getCustomerPhone();
             const email = customerEmailEl.value.trim();
             const orderNote = getOrderNote();
             const deliveryLocation = getDeliveryLocation();
             const selectedZone = getSelectedZone();
+            const deliveryAreaLabel = fulfillmentType === "pickup" ? "Pickup" : selectedZone ? selectedZone.label : "";
+            const deliveryFee = fulfillmentType === "pickup" ? 0 : selectedZone ? selectedZone.fee : 0;
+            const dropOffDetails = fulfillmentType === "pickup" ? "Customer pickup" : deliveryLocation;
 
             if (cart.length === 0) {
                 return;
             }
 
-            if (!selectedZone) {
+            if (fulfillmentType === "delivery" && !selectedZone) {
                 setDeliveryStatus("Please choose your delivery area before making payment.", "error");
                 deliveryAreaEl.focus();
                 return;
@@ -715,10 +775,11 @@
                         { display_name: "Order Items", variable_name: "order_items", value: cart.map((item) => `${item.name} x${item.quantity}`).join(", ") },
                         { display_name: "Order Note", variable_name: "order_note", value: orderNote || "No special instruction" },
                         { display_name: "Customer Phone", variable_name: "customer_phone", value: customerPhone },
-                        { display_name: "Delivery Area", variable_name: "delivery_area", value: selectedZone.label },
-                        { display_name: "Delivery Fee", variable_name: "delivery_fee", value: formatPrice(selectedZone.fee) },
+                        { display_name: "Order Type", variable_name: "fulfillment_type", value: fulfillmentLabel },
+                        { display_name: "Delivery Area", variable_name: "delivery_area", value: deliveryAreaLabel },
+                        { display_name: "Delivery Fee", variable_name: "delivery_fee", value: formatPrice(deliveryFee) },
                         { display_name: "Service Fee", variable_name: "service_fee", value: formatPrice(getServiceFee()) },
-                        { display_name: "Drop-off Details", variable_name: "delivery_location", value: deliveryLocation || "Customer did not provide extra location details" }
+                        { display_name: "Drop-off Details", variable_name: "delivery_location", value: dropOffDetails || "Customer did not provide extra location details" }
                     ]
                 },
                 onSuccess: async (transaction) => {
@@ -734,10 +795,11 @@
                                 order: {
                                     email,
                                     customerPhone,
-                                    deliveryArea: selectedZone.label,
-                                    deliveryFee: selectedZone.fee,
+                                    fulfillmentType,
+                                    deliveryArea: deliveryAreaLabel,
+                                    deliveryFee,
                                     serviceFee: getServiceFee(),
-                                    deliveryLocation,
+                                    deliveryLocation: dropOffDetails,
                                     orderNote,
                                     total,
                                     items: cart
@@ -750,10 +812,11 @@
                             date: new Date().toLocaleString(),
                             email,
                             customerPhone,
-                            deliveryArea: selectedZone.label,
-                            deliveryFee: selectedZone.fee,
+                            fulfillmentType,
+                            deliveryArea: deliveryAreaLabel,
+                            deliveryFee,
                             serviceFee: getServiceFee(),
-                            deliveryLocation,
+                            deliveryLocation: dropOffDetails,
                             orderNote,
                             total,
                             items: cart
@@ -765,6 +828,7 @@
                         saveOrderNote("");
                         saveDeliveryLocation("");
                         saveDeliveryArea("");
+                        saveFulfillmentType("delivery");
                         saveCustomerPhone("");
                         orderNoteEl.value = "";
                         deliveryLocationEl.value = "";
@@ -790,19 +854,30 @@
             });
         });
 
-        Promise.all([loadConfig(), loadSiteData()])
-            .then(([config]) => {
-                populateDeliveryAreas();
-                deliveryAreaEl.value = getDeliveryArea();
+        Promise.allSettled([loadSiteData(), loadConfig()])
+            .then((results) => {
+                const [siteDataResult, configResult] = results;
 
-                if (!config.hasSecretKey) {
-                    setPaymentStatus("Server is running, but PAYSTACK_SECRET_KEY is still missing.", "info");
+                if (siteDataResult.status === "fulfilled") {
+                    applySiteBranding();
+                    populateDeliveryAreas();
+                    deliveryAreaEl.value = getDeliveryArea();
+                    renderCart();
+                } else {
+                    setPaymentStatus(`Could not load site data: ${siteDataResult.reason.message}`, "error");
+                    return;
                 }
 
-                renderCart();
+                if (configResult.status === "fulfilled") {
+                    if (!configResult.value.hasSecretKey) {
+                        setPaymentStatus("Server is running, but PAYSTACK_SECRET_KEY is still missing.", "info");
+                    }
+                } else {
+                    setPaymentStatus(`Payment setup is not ready yet: ${configResult.reason.message}`, "info");
+                }
             })
             .catch((error) => {
-                setPaymentStatus(`Could not load payment config: ${error.message}`, "error");
+                setPaymentStatus(`Could not load cart page: ${error.message}`, "error");
             });
     });
 })();

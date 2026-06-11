@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: restaurant-project
+    runtime: node
+    plan: starter
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    autoDeploy: true
+    disk:
+      name: restaurant-storage
+      mountPath: /opt/render/project/src/storage
+      sizeGB: 10
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: STORAGE_ROOT
+        value: /opt/render/project/src/storage

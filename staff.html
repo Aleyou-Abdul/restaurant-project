@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Dashboard | My Restaurant</title>
+    <link rel="stylesheet" href="style.css?v=20260522a">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="admin-body">
+    <div id="staff-dashboard" class="admin-app" hidden>
+        <aside class="admin-sidebar">
+            <div class="admin-brand">
+                <div class="admin-brand-badge">ST</div>
+                <div>
+                    <h1>Staff Panel</h1>
+                    <p>Orders and stock only</p>
+                </div>
+            </div>
+
+            <nav class="admin-nav">
+                <button class="admin-nav-btn is-active" data-section="orders" type="button">Orders</button>
+                <button class="admin-nav-btn" data-section="stock" type="button">Stock Control</button>
+            </nav>
+        </aside>
+
+        <main class="admin-main">
+            <div class="admin-topbar">
+                <div>
+                    <h2 id="staff-page-title">Orders Queue</h2>
+                    <p id="staff-status" class="payment-status info">Loading dashboard...</p>
+                </div>
+                <div class="admin-topbar-actions">
+                    <div class="admin-notification-wrap">
+                        <button id="staff-notification-btn" class="admin-notification-btn" type="button" aria-label="View new orders">
+                            <span aria-hidden="true">&#128276;</span>
+                            <span id="staff-notification-count" class="admin-notification-count">0</span>
+                        </button>
+                        <div id="staff-notification-panel" class="admin-notification-panel" hidden>
+                            <div class="admin-notification-header">
+                                <strong>New Orders</strong>
+                                <span id="staff-notification-label">0 pending</span>
+                            </div>
+                            <div id="staff-notification-list" class="admin-notification-list"></div>
+                        </div>
+                    </div>
+                    <span id="staff-user-pill" class="admin-user-pill">Staff</span>
+                    <button id="staff-refresh-btn" type="button">Refresh</button>
+                    <button id="staff-logout-btn" type="button">Log Out</button>
+                </div>
+            </div>
+
+            <section id="staff-section-orders" class="admin-section is-active">
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>Orders</h3>
+                    </div>
+                    <div id="staff-orders-empty" class="empty-cart-message" hidden>No orders yet.</div>
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Area</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="staff-orders-body"></tbody>
+                        </table>
+                    </div>
+                </section>
+            </section>
+
+            <section id="staff-section-stock" class="admin-section">
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>Stock Control</h3>
+                    </div>
+                    <p class="admin-helper-text">Update item availability and remaining quantity without opening the full admin settings.</p>
+                    <div id="staff-stock-list" class="admin-repeat-list"></div>
+                </section>
+            </section>
+        </main>
+    </div>
+
+    <script src="staff.js?v=20260522b"></script>
+</body>
+</html>

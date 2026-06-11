@@ -1,14 +1,89 @@
 # Restaurant Project Deployment Guide
 
-This app should be hosted on a single persistent server or VPS. Do not deploy it to serverless hosting because it stores orders, images, logs, backups, and SQLite data on disk.
+This app must run on hosting that supports persistent storage because it stores SQLite data, uploads, logs, and backups on disk.
+
+## Hosting Options
+
+- `Render`
+  Good if you want easier managed security, GitHub auto deploy, and less server maintenance.
+  Important: use a paid web service with a persistent disk and a single instance only.
+
+- `VPS`
+  Good if you want full control and traditional server management.
 
 ## Recommended Setup
 
-- Ubuntu VPS with at least 2 GB RAM
-- Node.js 20 LTS
-- PM2 for process management
-- Nginx as reverse proxy with HTTPS
-- A domain name with SSL enabled
+- Render web service
+- Node.js 20 or newer
+- Persistent disk enabled for production
+- One running instance only while using SQLite
+- Environment variables configured in the Render dashboard
+
+## Render Deployment
+
+This repository now includes:
+
+- `render.yaml`
+
+For Render, use:
+
+- `Web Service`
+- `Paid plan`
+- `1 instance only`
+- `Persistent Disk enabled`
+
+### Important Render settings
+
+- Build command:
+
+```bash
+npm install --omit=dev
+```
+
+- Start command:
+
+```bash
+npm start
+```
+
+- Environment variables:
+
+```env
+NODE_ENV=production
+PORT=10000
+STORAGE_ROOT=/opt/render/project/src/storage
+PAYSTACK_PUBLIC_KEY=...
+PAYSTACK_SECRET_KEY=...
+ADMIN_USERNAME=...
+ADMIN_PASSWORD_HASH=...
+BACKUP_HOUR=3
+BACKUP_RETENTION_DAYS=14
+```
+
+### Why `STORAGE_ROOT` matters
+
+All writable app files now live under one storage path:
+
+- database
+- uploads
+- backups
+- logs
+
+On Render, only files written inside the disk mount path persist across deploys and restarts.
+
+### Render mount path
+
+Use this mount path:
+
+```text
+/opt/render/project/src/storage
+```
+
+### Render notes
+
+- uploaded images are still served from `/images/uploads/...`
+- the real files are stored under the persistent disk path
+- keep only one instance because SQLite should not be shared across multiple app instances
 
 ## 1. Upload the project
 
@@ -26,7 +101,6 @@ Create a `.env` file from `.env.example` and set:
 - `PAYSTACK_SECRET_KEY`
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD_HASH`
-- `OWNER_PASSWORD_HASH`
 - `PORT=3000`
 - `BACKUP_HOUR`
 - `BACKUP_RETENTION_DAYS`
@@ -45,6 +119,7 @@ Run:
 
 ```bash
 npm run check
+npm run check-db
 node server.js
 ```
 
@@ -77,6 +152,13 @@ Useful PM2 commands:
 pm2 status
 pm2 logs restaurant-project
 pm2 restart restaurant-project
+```
+
+Useful database safety commands:
+
+```bash
+npm run backup-db
+npm run check-db
 ```
 
 ## 5. Put Nginx in front
@@ -113,7 +195,50 @@ sudo apt install nginx certbot python3-certbot-nginx
 sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 ```
 
-## 6. Production checklist
+## 6. Optional SSH deploy workflow
+
+This repository already includes:
+
+- `.github/workflows/deploy.yml`
+
+The workflow is manual-only and is for VPS/SSH deployments. Render does not need it because Render deploys directly from your GitHub repository.
+
+### GitHub repository secrets
+
+In your GitHub repository, add these Actions secrets:
+
+- `SSH_HOST` - your server IP or hostname
+- `SSH_PORT` - usually `22`
+- `SSH_USER` - the Linux user for deployment
+- `SSH_PRIVATE_KEY` - the private key that can SSH into the server
+- `APP_DIR` - the full server path to the project, for example `/var/www/restaurant-project`
+
+### What the workflow does
+
+- checks out the latest code
+- connects to your server over SSH
+- syncs the project files with `rsync`
+- preserves:
+  - `.env`
+  - `data/`
+  - `images/uploads/`
+  - `node_modules/`
+- runs `npm install --omit=dev`
+- runs `npm run backup-db`
+- runs `npm run check-db`
+- reloads PM2
+
+### First-time server preparation
+
+Before the first auto deploy:
+
+1. Create the app folder on the server
+2. Upload the project once manually
+3. Put your production `.env` file on the server
+4. Make sure PM2 is installed and working
+5. Make sure the server can accept SSH from the GitHub Actions key
+
+## 7. Production checklist
 
 - Use live Paystack keys
 - Confirm `/healthz` returns healthy
@@ -121,11 +246,11 @@ sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 - Confirm `Secure` cookies are present in browser dev tools
 - Place a real test order
 - Upload a menu image
-- Confirm backups are being created in `data/backups`
-- Confirm logs are being written in `data/logs/server.log`
+- Confirm backups are being created under the configured `STORAGE_ROOT`
+- Confirm logs are being written under the configured `STORAGE_ROOT`
 - Keep only one app instance for SQLite safety
 
-## 7. Important operational notes
+## 8. Important operational notes
 
 - Back up the whole `data/` folder regularly
 - Do not delete `data/restaurant.db`, `data/*.wal`, or uploaded images

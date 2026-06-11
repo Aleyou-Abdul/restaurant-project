@@ -1,0 +1,19 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="86" y1="64" x2="420" y2="446" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#163D26"/>
+      <stop offset="0.55" stop-color="#1F6A3B"/>
+      <stop offset="1" stop-color="#F59E0B"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="256" y1="110" x2="256" y2="394" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDE68A"/>
+      <stop offset="1" stop-color="#FACC15"/>
+    </linearGradient>
+  </defs>
+  <rect x="40" y="40" width="432" height="432" rx="122" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="148" fill="rgba(255,255,255,0.08)"/>
+  <path d="M258 122C200.562 122 154 168.562 154 226C154 288.708 199.608 335.648 259 340.154V391H292V320.164C331.026 307.47 358 269.426 358 226C358 168.562 311.438 122 254 122H258ZM292 285.468V224H325C324.26 252.254 311.34 275.698 292 285.468ZM259 155H259.388V191H187.012C198.84 169.232 226.388 155 259 155ZM187.012 224H259V307.136C220.614 302.78 189.924 268.732 187.012 224Z" fill="#F8FFF7"/>
+  <path d="M298 126L222 260H270L224 386L320 244H268L298 126Z" fill="url(#bolt)"/>
+  <path d="M168 390H344" stroke="#F8FFF7" stroke-width="18" stroke-linecap="round" opacity="0.9"/>
+  <path d="M204 424H308" stroke="#F8FFF7" stroke-width="14" stroke-linecap="round" opacity="0.7"/>
+</svg>

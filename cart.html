@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Your Cart | My Restaurant</title>
-    <link rel="stylesheet" href="style.css?v=20260424b">
+    <link rel="stylesheet" href="style.css?v=20260611a">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -34,6 +34,19 @@
             <p id="empty-cart" class="empty-cart-message">Your cart is empty.</p>
             <div id="cart-items" class="cart-items"></div>
 
+            <div class="fulfillment-box">
+                <p class="fulfillment-title">How do you want to receive your order?</p>
+                <div class="fulfillment-options" role="group" aria-label="Choose delivery or pickup">
+                    <button id="delivery-option-btn" class="fulfillment-option is-active" type="button" data-fulfillment-type="delivery">
+                        Delivery
+                    </button>
+                    <button id="pickup-option-btn" class="fulfillment-option" type="button" data-fulfillment-type="pickup">
+                        Pickup
+                    </button>
+                </div>
+                <p id="fulfillment-help" class="fulfillment-help">Delivery orders include the selected area fee.</p>
+            </div>
+
             <div class="delivery-box">
                 <div class="delivery-grid">
                     <div class="delivery-field">
@@ -48,7 +61,6 @@
                     </div>
                 </div>
                 <div class="delivery-actions">
-                    <button id="use-location-btn" type="button">Use Current Location</button>
                     <p id="delivery-status" class="delivery-status"></p>
                 </div>
             </div>
@@ -117,6 +129,6 @@
     </footer>
 
     <script src="https://js.paystack.co/v2/inline.js"></script>
-    <script src="cart.js"></script>
+    <script src="cart.js?v=20260611a"></script>
 </body>
 </html>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard | My Restaurant</title>
-    <link rel="stylesheet" href="style.css?v=20260424b">
+    <link rel="stylesheet" href="style.css?v=20260522a">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="admin-body">
@@ -22,6 +22,8 @@
                 <button class="admin-nav-btn is-active" data-section="dashboard" type="button">Dashboard</button>
                 <button class="admin-nav-btn" data-section="orders" type="button">Orders</button>
                 <button class="admin-nav-btn" data-section="menu" type="button">Menu Management</button>
+                <button class="admin-nav-btn" data-section="users" type="button">Users</button>
+                <button class="admin-nav-btn" data-section="sales" type="button">Sales</button>
                 <button class="admin-nav-btn" data-section="settings" type="button">Settings</button>
             </nav>
         </aside>
@@ -47,7 +49,6 @@
                         </div>
                     </div>
                     <span class="admin-user-pill">Admin</span>
-                    <a href="owner-login.html" class="admin-owner-link">Owner Page</a>
                     <button id="refresh-orders-btn" type="button">Refresh</button>
                     <button id="backup-database-btn" type="button">Backup DB</button>
                     <button id="save-site-data-btn" type="button">Save Changes</button>
@@ -165,6 +166,102 @@
                 </section>
             </section>
 
+            <section id="admin-section-users" class="admin-section">
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>Add User</h3>
+                    </div>
+                    <p class="admin-helper-text">Create staff accounts for people handling orders and stock updates. Staff users cannot change your full website settings.</p>
+                    <div class="admin-form-grid">
+                        <div class="admin-field">
+                            <label for="staff-display-name">Full Name</label>
+                            <input id="staff-display-name" type="text" placeholder="e.g. Amina Yusuf">
+                        </div>
+                        <div class="admin-field">
+                            <label for="staff-username">Username</label>
+                            <input id="staff-username" type="text" placeholder="e.g. amina">
+                        </div>
+                        <div class="admin-field">
+                            <label for="staff-password">Password</label>
+                            <input id="staff-password" type="password" placeholder="Create a staff password">
+                        </div>
+                        <div class="admin-field admin-field-wide">
+                            <button id="create-staff-user-btn" type="button">Create User</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>Staff Users</h3>
+                    </div>
+                    <div id="staff-users-empty" class="empty-cart-message" hidden>No staff users yet.</div>
+                    <div id="staff-users-list" class="admin-repeat-list"></div>
+                </section>
+            </section>
+
+            <section id="admin-section-sales" class="admin-section">
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>Sales Tracking</h3>
+                        <div class="admin-topbar-actions">
+                            <select id="admin-sales-range">
+                                <option value="today">Daily</option>
+                                <option value="week">Weekly</option>
+                                <option value="month">Monthly</option>
+                                <option value="all">All Time</option>
+                            </select>
+                            <button id="admin-sales-refresh-btn" type="button">Refresh</button>
+                            <button id="admin-sales-closing-btn" type="button">Closing Summary</button>
+                            <button id="admin-sales-download-btn" type="button">Download PDF</button>
+                            <button id="admin-sales-print-btn" type="button">Print Report</button>
+                        </div>
+                    </div>
+
+                    <div class="admin-stats-grid">
+                        <article class="admin-stat-card">
+                            <p>Total Orders</p>
+                            <h3 id="admin-sales-total-orders">0</h3>
+                        </article>
+                        <article class="admin-stat-card">
+                            <p>Total Items Sold</p>
+                            <h3 id="admin-sales-total-quantity">0</h3>
+                        </article>
+                        <article class="admin-stat-card">
+                            <p>Total Item Sales</p>
+                            <h3 id="admin-sales-total-value">&#8358;0</h3>
+                        </article>
+                    </div>
+
+                    <div class="admin-table-wrap">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th>Quantity Sold</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-sales-body"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="owner-report-total admin-sales-total-line">
+                        <strong>Total of all item sales</strong>
+                        <span id="admin-sales-footer-total">&#8358;0</span>
+                    </div>
+                </section>
+
+                <section class="admin-surface">
+                    <div class="admin-surface-header">
+                        <h3>Closing History</h3>
+                    </div>
+                    <div id="admin-closing-history" class="admin-monitor-list">
+                        <p class="admin-helper-text">No closing history yet.</p>
+                    </div>
+                </section>
+            </section>
+
             <section id="admin-section-settings" class="admin-section">
                 <section class="admin-surface">
                     <div class="admin-surface-header">
@@ -266,6 +363,6 @@
         </main>
     </div>
 
-    <script src="admin.js"></script>
+    <script src="admin.js?v=20260522a"></script>
 </body>
 </html>

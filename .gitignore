@@ -5,5 +5,6 @@ data/*.db-shm
 data/*.db-wal
 data/backups/
 data/logs/
+data/uploads/
 images/uploads/
 npm-debug.log*

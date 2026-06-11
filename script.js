@@ -148,6 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return configuredSlides;
         }
 
+        // Fall back to menu images so the hero never looks broken on a fresh setup.
         return (menuItems || [])
             .map((item) => item.image)
             .filter(Boolean)
