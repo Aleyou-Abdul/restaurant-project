@@ -55,6 +55,18 @@ This project is a restaurant ordering system with:
 - `data/logs/server.log`
   Server-side event log.
 
+## Render Demo Deployment
+
+The included `render.yaml` is configured for a free Render demo link.
+
+Important demo limitation:
+
+- Free Render storage is temporary.
+- Orders, uploaded images, SQLite data, logs, and backups can reset after restart or redeploy.
+- Use this free setup for showing restaurant owners the system, not for real daily restaurant operation.
+
+For production, change Render to a paid web service with a persistent disk and set `STORAGE_ROOT` to the disk mount path.
+
 ## Important Backend Concepts
 
 ### 1. Site Data

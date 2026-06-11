@@ -1,12 +1,12 @@
 # Restaurant Project Deployment Guide
 
-This app must run on hosting that supports persistent storage because it stores SQLite data, uploads, logs, and backups on disk.
+This app can run on Render Free for demos, but production must use persistent storage because it stores SQLite data, uploads, logs, and backups on disk.
 
 ## Hosting Options
 
 - `Render`
   Good if you want easier managed security, GitHub auto deploy, and less server maintenance.
-  Important: use a paid web service with a persistent disk and a single instance only.
+  Free is fine for demos. Production should use a paid web service with a persistent disk and a single instance only.
 
 - `VPS`
   Good if you want full control and traditional server management.
@@ -15,7 +15,7 @@ This app must run on hosting that supports persistent storage because it stores 
 
 - Render web service
 - Node.js 20 or newer
-- Persistent disk enabled for production
+- Render Free for demo, or persistent disk enabled for production
 - One running instance only while using SQLite
 - Environment variables configured in the Render dashboard
 
@@ -25,12 +25,16 @@ This repository now includes:
 
 - `render.yaml`
 
-For Render, use:
+For the current free demo blueprint, use:
 
 - `Web Service`
-- `Paid plan`
+- `Free plan`
 - `1 instance only`
-- `Persistent Disk enabled`
+- `No persistent disk`
+
+Important: free demo data can reset after restart or redeploy.
+
+For production, upgrade to a paid plan and add a persistent disk.
 
 ### Important Render settings
 
@@ -51,13 +55,19 @@ npm start
 ```env
 NODE_ENV=production
 PORT=10000
-STORAGE_ROOT=/opt/render/project/src/storage
+STORAGE_ROOT=/tmp/restaurant-demo-storage
 PAYSTACK_PUBLIC_KEY=...
 PAYSTACK_SECRET_KEY=...
 ADMIN_USERNAME=...
 ADMIN_PASSWORD_HASH=...
 BACKUP_HOUR=3
 BACKUP_RETENTION_DAYS=14
+```
+
+For production with a persistent disk, change `STORAGE_ROOT` to:
+
+```env
+STORAGE_ROOT=/opt/render/project/src/storage
 ```
 
 ### Why `STORAGE_ROOT` matters
@@ -69,11 +79,11 @@ All writable app files now live under one storage path:
 - backups
 - logs
 
-On Render, only files written inside the disk mount path persist across deploys and restarts.
+On Render Free, this path is temporary. On paid Render with a disk, only files written inside the disk mount path persist across deploys and restarts.
 
 ### Render mount path
 
-Use this mount path:
+For production with a persistent disk, use this mount path:
 
 ```text
 /opt/render/project/src/storage
@@ -82,7 +92,7 @@ Use this mount path:
 ### Render notes
 
 - uploaded images are still served from `/images/uploads/...`
-- the real files are stored under the persistent disk path
+- the real files are stored under `STORAGE_ROOT`
 - keep only one instance because SQLite should not be shared across multiple app instances
 
 ## 1. Upload the project
