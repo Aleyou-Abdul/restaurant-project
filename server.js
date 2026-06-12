@@ -26,6 +26,10 @@ const paystackPublicKey = process.env.PAYSTACK_PUBLIC_KEY || "";
 const adminUsername = process.env.ADMIN_USERNAME || "";
 const adminPassword = process.env.ADMIN_PASSWORD || "";
 const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH || "";
+const defaultStaffUsername = process.env.STAFF_USERNAME || "";
+const defaultStaffDisplayName = process.env.STAFF_DISPLAY_NAME || "";
+const defaultStaffPassword = process.env.STAFF_PASSWORD || "";
+const defaultStaffPasswordHash = process.env.STAFF_PASSWORD_HASH || "";
 const backupHour = Number(process.env.BACKUP_HOUR || 3);
 const backupRetentionDays = Number(process.env.BACKUP_RETENTION_DAYS || 14);
 const adminSessions = new Map();
@@ -1025,6 +1029,7 @@ async function initializeDatabase() {
         )
     `);
     await ensureTableColumn("staff_users", "blocked", "INTEGER NOT NULL DEFAULT 0");
+    await ensureDefaultStaffUserFromEnv();
     await migrateJsonDataIfNeeded();
     const integrityResult = await checkDatabaseIntegrity();
 
@@ -1632,6 +1637,25 @@ function createPasswordHash(password) {
     const salt = crypto.randomBytes(16).toString("hex");
     const derivedKey = crypto.scryptSync(String(password || ""), salt, 64).toString("hex");
     return `scrypt$${salt}$${derivedKey}`;
+}
+
+async function ensureDefaultStaffUserFromEnv() {
+    const username = normalizeUsername(defaultStaffUsername);
+    const displayName = String(defaultStaffDisplayName || defaultStaffUsername || "").trim();
+    const passwordHash = String(defaultStaffPasswordHash || "").trim() ||
+        (defaultStaffPassword ? createPasswordHash(defaultStaffPassword) : "");
+
+    if (!username || !displayName || !passwordHash) {
+        return;
+    }
+
+    // Free Render demo storage can reset, so env-based staff credentials recreate the main staff user on startup.
+    await saveStaffUser({
+        username,
+        displayName,
+        passwordHash,
+        blocked: false
+    });
 }
 
 function verifyPasswordHash(password, storedHash) {

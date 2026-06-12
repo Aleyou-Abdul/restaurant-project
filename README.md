@@ -164,8 +164,13 @@ Important `.env` values include:
 - `PAYSTACK_SECRET_KEY`
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD_HASH`
+- `STAFF_USERNAME`
+- `STAFF_DISPLAY_NAME`
+- `STAFF_PASSWORD_HASH`
 - `BACKUP_HOUR`
 - `BACKUP_RETENTION_DAYS`
+
+For free Render demos, setting the optional staff variables is recommended because temporary storage can reset staff accounts after restart or redeploy.
 
 ## Useful Commands
 
