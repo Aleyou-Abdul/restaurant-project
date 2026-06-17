@@ -8,6 +8,12 @@
     const LAST_RECEIPT_KEY = "lastReceipt";
     const SERVICE_FEE = 100;
     let paystackPublicKey = "";
+    let paymentConfig = {
+        hasSecretKey: false,
+        requiresSplit: true,
+        hasSplitConfig: false,
+        splitConfig: null
+    };
     let siteData = { deliveryZones: [] };
 
     function parsePrice(value) {
@@ -54,6 +60,12 @@
     async function loadConfig() {
         const config = await fetchJson("/api/config");
         paystackPublicKey = config.paystackPublicKey || "";
+        paymentConfig = {
+            hasSecretKey: Boolean(config.hasSecretKey),
+            requiresSplit: config.requiresSplit !== false,
+            hasSplitConfig: Boolean(config.hasSplitConfig),
+            splitConfig: config.splitConfig || null
+        };
         return config;
     }
 
@@ -292,6 +304,34 @@
 
     function getFulfillmentLabel(type) {
         return type === "pickup" ? "Pickup" : "Delivery";
+    }
+
+    function getPaystackSplitOptions() {
+        const splitConfig = paymentConfig.splitConfig || {};
+
+        if (splitConfig.mode === "split-code" && splitConfig.splitCode) {
+            return {
+                split_code: splitConfig.splitCode
+            };
+        }
+
+        if (splitConfig.mode === "subaccount" && splitConfig.subaccountCode) {
+            const options = {
+                subaccountCode: splitConfig.subaccountCode
+            };
+
+            if (Number(splitConfig.transactionChargeKobo || 0) > 0) {
+                options.transactionCharge = Number(splitConfig.transactionChargeKobo);
+            }
+
+            if (splitConfig.bearer) {
+                options.bearer = splitConfig.bearer;
+            }
+
+            return options;
+        }
+
+        return {};
     }
 
     function getMenuItemForCartItem(cartItem) {
@@ -759,7 +799,17 @@
             }
 
             if (!paystackPublicKey) {
-                setPaymentStatus("Add your Paystack keys in the server .env file first.", "error");
+                setPaymentStatus("Add your Paystack public key in Render Environment first.", "error");
+                return;
+            }
+
+            if (!paymentConfig.hasSecretKey) {
+                setPaymentStatus("Add your Paystack secret key in Render Environment first.", "error");
+                return;
+            }
+
+            if (paymentConfig.requiresSplit && !paymentConfig.hasSplitConfig) {
+                setPaymentStatus("Payment split is not configured. Add PAYSTACK_SPLIT_CODE before accepting orders.", "error");
                 return;
             }
 
@@ -770,6 +820,7 @@
                 amount: total * 100,
                 currency: "NGN",
                 reference: `order-${Date.now()}`,
+                ...getPaystackSplitOptions(),
                 metadata: {
                     custom_fields: [
                         { display_name: "Order Items", variable_name: "order_items", value: cart.map((item) => `${item.name} x${item.quantity}`).join(", ") },
@@ -871,6 +922,8 @@
                 if (configResult.status === "fulfilled") {
                     if (!configResult.value.hasSecretKey) {
                         setPaymentStatus("Server is running, but PAYSTACK_SECRET_KEY is still missing.", "info");
+                    } else if (configResult.value.requiresSplit !== false && !configResult.value.hasSplitConfig) {
+                        setPaymentStatus("Payment split is required. Add PAYSTACK_SPLIT_CODE in Render before accepting orders.", "error");
                     }
                 } else {
                     setPaymentStatus(`Payment setup is not ready yet: ${configResult.reason.message}`, "info");

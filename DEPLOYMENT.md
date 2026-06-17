@@ -65,6 +65,7 @@ PORT=10000
 STORAGE_ROOT=/tmp/restaurant-demo-storage
 PAYSTACK_PUBLIC_KEY=...
 PAYSTACK_SECRET_KEY=...
+PAYSTACK_SPLIT_CODE=...
 ADMIN_USERNAME=...
 ADMIN_PASSWORD_HASH=...
 STAFF_USERNAME=staff
@@ -119,6 +120,7 @@ Create a `.env` file from `.env.example` and set:
 
 - `PAYSTACK_PUBLIC_KEY`
 - `PAYSTACK_SECRET_KEY`
+- `PAYSTACK_SPLIT_CODE`
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD_HASH`
 - `STAFF_USERNAME`
@@ -135,6 +137,8 @@ npm run hash-password
 ```
 
 Use live Paystack keys before launch. Do not use test keys in production.
+
+Payments will not start unless `PAYSTACK_SPLIT_CODE` is configured. This is required so the service fee split is active before any customer can pay.
 
 ## 3. Validate before launch
 

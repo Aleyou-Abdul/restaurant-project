@@ -162,6 +162,7 @@ Important `.env` values include:
 - `STORAGE_ROOT`
 - `PAYSTACK_PUBLIC_KEY`
 - `PAYSTACK_SECRET_KEY`
+- `PAYSTACK_SPLIT_CODE`
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD_HASH`
 - `STAFF_USERNAME`
@@ -171,6 +172,8 @@ Important `.env` values include:
 - `BACKUP_RETENTION_DAYS`
 
 For free Render demos, setting the optional staff variables is recommended because temporary storage can reset staff accounts after restart or redeploy.
+
+Payments are intentionally blocked unless `PAYSTACK_SPLIT_CODE` is configured. This enforces the service-fee split before any restaurant can accept orders through the system.
 
 ## Useful Commands
 

@@ -23,6 +23,10 @@ fs.mkdirSync(storageRootPath, { recursive: true });
 const port = Number(process.env.PORT || 3000);
 const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY || "";
 const paystackPublicKey = process.env.PAYSTACK_PUBLIC_KEY || "";
+const paystackSplitCode = process.env.PAYSTACK_SPLIT_CODE || "";
+const paystackSubaccountCode = process.env.PAYSTACK_SUBACCOUNT_CODE || "";
+const paystackTransactionChargeKobo = Number(process.env.PAYSTACK_TRANSACTION_CHARGE_KOBO || 0);
+const paystackBearer = process.env.PAYSTACK_BEARER || "";
 const adminUsername = process.env.ADMIN_USERNAME || "";
 const adminPassword = process.env.ADMIN_PASSWORD || "";
 const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH || "";
@@ -92,7 +96,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && requestUrl.pathname === "/api/config") {
         return sendJson(res, 200, {
             paystackPublicKey,
-            hasSecretKey: Boolean(paystackSecretKey)
+            hasSecretKey: Boolean(paystackSecretKey),
+            requiresSplit: true,
+            hasSplitConfig: hasConfiguredPaystackSplit(),
+            splitConfig: getPaystackSplitConfig()
         });
     }
 
@@ -476,6 +483,13 @@ const server = http.createServer(async (req, res) => {
             return sendJson(res, 500, {
                 ok: false,
                 message: "PAYSTACK_SECRET_KEY is not set on the server."
+            });
+        }
+
+        if (!hasConfiguredPaystackSplit()) {
+            return sendJson(res, 500, {
+                ok: false,
+                message: "Payment split is not configured. Add PAYSTACK_SPLIT_CODE before accepting orders."
             });
         }
 
@@ -1623,6 +1637,30 @@ async function ensureTableColumn(tableName, columnName, columnDefinition) {
 
 function hasConfiguredAdminCredentials() {
     return Boolean(adminUsername && (adminPassword || adminPasswordHash));
+}
+
+function hasConfiguredPaystackSplit() {
+    return Boolean(paystackSplitCode || paystackSubaccountCode);
+}
+
+function getPaystackSplitConfig() {
+    if (paystackSplitCode) {
+        return {
+            mode: "split-code",
+            splitCode: paystackSplitCode
+        };
+    }
+
+    if (paystackSubaccountCode) {
+        return {
+            mode: "subaccount",
+            subaccountCode: paystackSubaccountCode,
+            transactionChargeKobo: paystackTransactionChargeKobo > 0 ? paystackTransactionChargeKobo : 0,
+            bearer: ["account", "subaccount"].includes(paystackBearer) ? paystackBearer : ""
+        };
+    }
+
+    return null;
 }
 
 function verifyConfiguredPassword(inputPassword, plainPassword, passwordHash) {
