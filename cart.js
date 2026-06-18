@@ -470,36 +470,32 @@
     }
 
     function printReceiptDocument(receipt) {
-        const documentMarkup = getReceiptPrintDocument(receipt);
-        const frame = document.createElement("iframe");
-        frame.style.position = "fixed";
-        frame.style.right = "0";
-        frame.style.bottom = "0";
-        frame.style.width = "0";
-        frame.style.height = "0";
-        frame.style.border = "0";
-        frame.setAttribute("aria-hidden", "true");
-        document.body.appendChild(frame);
-
-        const frameWindow = frame.contentWindow;
-
-        if (!frameWindow) {
-            document.body.removeChild(frame);
-            alert("Printing is not available right now. Please try again.");
-            return;
-        }
-
-        frame.onload = () => {
-            frameWindow.focus();
-            frameWindow.print();
-            window.setTimeout(() => {
-                if (frame.parentNode) {
-                    frame.parentNode.removeChild(frame);
-                }
-            }, 1200);
+        const parsedDocument = new DOMParser().parseFromString(getReceiptPrintDocument(receipt), "text/html");
+        const printRoot = document.createElement("div");
+        const printStyle = document.createElement("style");
+        const cleanup = () => {
+            printRoot.remove();
+            printStyle.remove();
+            window.removeEventListener("afterprint", cleanup);
         };
 
-        frame.srcdoc = documentMarkup;
+        printRoot.id = "active-print-root";
+        printRoot.innerHTML = parsedDocument.body.innerHTML;
+        printStyle.textContent = `
+            @media screen { #active-print-root { display: none !important; } }
+            @media print {
+                body > *:not(#active-print-root) { display: none !important; }
+                #active-print-root { display: block !important; }
+                body { margin: 0 !important; background: #fff !important; }
+            }
+            ${[...parsedDocument.querySelectorAll("style")].map((style) => style.textContent).join("\n")}
+        `;
+
+        document.head.appendChild(printStyle);
+        document.body.appendChild(printRoot);
+        window.addEventListener("afterprint", cleanup);
+        window.print();
+        window.setTimeout(cleanup, 1500);
     }
 
     function renderReceipt(receipt) {
