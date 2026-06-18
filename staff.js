@@ -240,6 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const printRoot = document.createElement("div");
         const printStyle = document.createElement("style");
         const cleanup = () => {
+            document.body.classList.remove("is-printing-document");
             printRoot.remove();
             printStyle.remove();
             window.removeEventListener("afterprint", cleanup);
@@ -248,10 +249,24 @@ document.addEventListener("DOMContentLoaded", () => {
         printRoot.id = "active-print-root";
         printRoot.innerHTML = parsedDocument.body.innerHTML;
         printStyle.textContent = `
-            @media screen { #active-print-root { display: none !important; } }
+            #active-print-root {
+                position: fixed !important;
+                left: -10000px !important;
+                top: 0 !important;
+                width: 72mm !important;
+                background: #fff !important;
+                color: #111 !important;
+            }
             @media print {
-                body > *:not(#active-print-root) { display: none !important; }
-                #active-print-root { display: block !important; }
+                body.is-printing-document > *:not(#active-print-root) { display: none !important; }
+                #active-print-root {
+                    position: static !important;
+                    left: auto !important;
+                    top: auto !important;
+                    display: block !important;
+                    width: 72mm !important;
+                    margin: 0 auto !important;
+                }
                 body { margin: 0 !important; background: #fff !important; }
             }
             ${[...parsedDocument.querySelectorAll("style")].map((style) => style.textContent).join("\n")}
@@ -259,9 +274,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         document.head.appendChild(printStyle);
         document.body.appendChild(printRoot);
+        document.body.classList.add("is-printing-document");
         window.addEventListener("afterprint", cleanup);
-        window.print();
-        window.setTimeout(cleanup, 1500);
+        window.setTimeout(() => {
+            window.print();
+            window.setTimeout(cleanup, 1500);
+        }, 250);
     }
 
     function printReceipt(order) {
