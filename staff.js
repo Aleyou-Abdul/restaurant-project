@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let autoRefreshTimerId = null;
     let isAutoRefreshing = false;
     let audioPrimed = false;
+    let staffAudioContext = null;
     let stockEditHoldUntil = 0;
 
     function formatPrice(amount) {
@@ -111,13 +112,18 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        const audioContext = getStaffAudioContext();
 
-        if (!AudioContextClass) {
+        if (!audioContext) {
             return;
         }
 
-        const audioContext = new AudioContextClass();
+        if (audioContext.state === "suspended") {
+            audioContext.resume().catch(() => {
+                // Mobile browsers may reject resume outside a direct tap.
+            });
+        }
+
         const masterGain = audioContext.createGain();
         masterGain.connect(audioContext.destination);
         masterGain.gain.setValueAtTime(0.0001, audioContext.currentTime);
@@ -149,15 +155,31 @@ document.addEventListener("DOMContentLoaded", () => {
             oscillator.stop(audioContext.currentTime + tone.start + tone.duration);
         });
 
-        window.setTimeout(() => {
-            audioContext.close().catch(() => {
-                // Ignore audio cleanup errors.
-            });
-        }, 3100);
+    }
+
+    function getStaffAudioContext() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+        if (!AudioContextClass) {
+            return null;
+        }
+
+        if (!staffAudioContext) {
+            staffAudioContext = new AudioContextClass();
+        }
+
+        return staffAudioContext;
     }
 
     function primeAudio() {
         audioPrimed = true;
+        const audioContext = getStaffAudioContext();
+
+        if (audioContext && audioContext.state === "suspended") {
+            audioContext.resume().catch(() => {
+                // The next user tap can try again.
+            });
+        }
     }
 
     function buildReceipt(order) {
@@ -235,55 +257,18 @@ document.addEventListener("DOMContentLoaded", () => {
         return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Receipt ${escapeHtml(order.reference || "-")}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css?v=20260512e"><style>@page{size:80mm auto;margin:1mm}body{margin:0;padding:0;background:#fff;color:#111;font-family:Poppins,Arial,sans-serif}.print-shell{width:72mm;margin:0 auto;zoom:.9}.print-shell .receipt-card{margin-top:0;padding:5px 5px 3px;border:none;border-radius:0;background:#fcfcfc;box-shadow:none}.print-shell .receipt-pos{width:min(100%,280px);gap:3px;font-size:10px}.print-shell .receipt-logo{width:50px;height:50px;margin:0 auto 3px}.print-shell .receipt-thermal-brand h4{font-size:13px;line-height:1}.print-shell .receipt-thermal-contact{font-size:8px;line-height:1.05}.print-shell .receipt-kicker{margin-top:1px;font-size:8px;letter-spacing:.06em}.print-shell .receipt-divider{margin:3px 0}.print-shell .receipt-thermal-title{font-size:14px;margin:1px 0}.print-shell .receipt-thermal-meta{font-size:8px;gap:3px}.print-shell .receipt-thermal-table-head,.print-shell .receipt-thermal-item{grid-template-columns:24px 1fr auto;gap:4px}.print-shell .receipt-thermal-table-head{font-size:8px}.print-shell .receipt-thermal-item{padding:2px 0;font-size:9px}.print-shell .receipt-thermal-count{margin:3px 0;font-size:9px}.print-shell .receipt-breakdown{gap:1px}.print-shell .receipt-breakdown p{font-size:9px;gap:4px}.print-shell .receipt-total-row{margin-top:3px;padding-top:3px;font-size:12px;gap:4px}.print-shell .receipt-total-row strong{font-size:16px}.print-shell .receipt-thermal-details{gap:1px}.print-shell .receipt-thermal-details p{font-size:8px;gap:3px;line-height:1}.print-shell .receipt-thank-you{margin:4px 0 3px;font-size:12px}.receipt-footer-meta{margin-top:3px;padding-top:3px;border-top:1px dashed #777;display:flex;justify-content:space-between;gap:3px;font-size:7px;font-family:'Courier New',monospace;page-break-inside:avoid}.receipt-footer-meta span:last-child{text-align:right}@media print{body{padding:0}.print-shell{width:72mm;zoom:.9}}</style></head><body><div class="print-shell"><section class="receipt-card">${buildReceipt(order)}<div class="receipt-footer-meta"><span>${escapeHtml(order.reference || "-")}</span><span>${escapeHtml(order.date || "-")}</span></div></section></div></body></html>`;
     }
 
-    function printDocumentMarkup(documentMarkup) {
-        const parsedDocument = new DOMParser().parseFromString(documentMarkup, "text/html");
-        const printRoot = document.createElement("div");
-        const printStyle = document.createElement("style");
-        const cleanup = () => {
-            document.body.classList.remove("is-printing-document");
-            printRoot.remove();
-            printStyle.remove();
-            window.removeEventListener("afterprint", cleanup);
-        };
+    function openPrintDocument(documentMarkup) {
+        const key = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        localStorage.setItem(`printDocument:${key}`, documentMarkup);
+        const printWindow = window.open(`receipt-print.html?key=${encodeURIComponent(key)}`, "_blank");
 
-        printRoot.id = "active-print-root";
-        printRoot.innerHTML = parsedDocument.body.innerHTML;
-        printStyle.textContent = `
-            #active-print-root {
-                position: fixed !important;
-                left: -10000px !important;
-                top: 0 !important;
-                width: 72mm !important;
-                background: #fff !important;
-                color: #111 !important;
-            }
-            @media print {
-                body.is-printing-document > *:not(#active-print-root) { display: none !important; }
-                #active-print-root {
-                    position: static !important;
-                    left: auto !important;
-                    top: auto !important;
-                    display: block !important;
-                    width: 72mm !important;
-                    margin: 0 auto !important;
-                }
-                body { margin: 0 !important; background: #fff !important; }
-            }
-            ${[...parsedDocument.querySelectorAll("style")].map((style) => style.textContent).join("\n")}
-        `;
-
-        document.head.appendChild(printStyle);
-        document.body.appendChild(printRoot);
-        document.body.classList.add("is-printing-document");
-        window.addEventListener("afterprint", cleanup);
-        window.setTimeout(() => {
-            window.print();
-            window.setTimeout(cleanup, 1500);
-        }, 250);
+        if (!printWindow) {
+            setStatus("Please allow popups so the receipt print page can open.", "error");
+        }
     }
 
     function printReceipt(order) {
-        printDocumentMarkup(getReceiptPrintDocument(order));
+        openPrintDocument(getReceiptPrintDocument(order));
     }
 
     async function updateOrderStatus(reference, status) {
@@ -568,6 +553,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     staffNotificationBtn.addEventListener("click", () => {
+        primeAudio();
         const isHidden = staffNotificationPanelEl.hidden;
         staffNotificationPanelEl.hidden = !isHidden;
     });

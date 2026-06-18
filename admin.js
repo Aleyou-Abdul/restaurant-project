@@ -717,59 +717,22 @@ document.addEventListener("DOMContentLoaded", () => {
         return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Closing Summary</title><style>@page{size:A4;margin:14mm}body{font-family:Poppins,Arial,sans-serif;margin:0;color:#111;background:#fff} .sheet{max-width:760px;margin:0 auto;border:1px solid #ddd;border-radius:18px;padding:24px 24px 28px} .brand{text-align:center;margin-bottom:16px} .brand h1{margin:0;font-size:28px} .brand p{margin:4px 0 0;color:#475569} .heading{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:18px;padding-bottom:14px;border-bottom:2px solid #111} .heading h2,.heading p{margin:0} .summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:18px} .summary-card{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#fafafa} .summary-card strong,.summary-card p{margin:0} .summary-card p{margin-top:8px;font-size:22px;font-weight:700} table{width:100%;border-collapse:collapse} th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #e5e7eb} .footer-total{display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:14px;border-top:2px solid #111;font-size:22px;font-weight:700} .signoff{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:30px} .signoff p{margin:0 0 34px;color:#64748b} .signoff strong{display:block;padding-top:8px;border-top:1px solid #111} @media print{body{background:#fff}.sheet{border:none;border-radius:0;padding:0}}</style></head><body><div class="sheet"><div class="brand"><h1>${escapeHtml(branding.restaurantName)}</h1>${branding.phone ? `<p>${escapeHtml(branding.phone)}</p>` : ""}${branding.location ? `<p>${escapeHtml(branding.location)}</p>` : ""}</div><div class="heading"><div><h2>Daily Closing Summary</h2><p>Prepared for end-of-day review</p></div><div><strong>${today}</strong></div></div><div class="summary"><div class="summary-card"><strong>Total Orders</strong><p>${report.totalOrders || 0}</p></div><div class="summary-card"><strong>Total Items Sold</strong><p>${totalQuantity}</p></div><div class="summary-card"><strong>Total Item Sales</strong><p>${formatPrice(report.totalItemSales || 0)}</p></div></div><table><thead><tr><th>Item</th><th>Qty</th><th>Total</th></tr></thead><tbody>${rows || '<tr><td colspan="3">No item sales today.</td></tr>'}</tbody></table><div class="footer-total"><span>Total Sales For Today</span><span>${formatPrice(report.totalItemSales || 0)}</span></div><div class="signoff"><div><p>Prepared by</p><strong>________________________</strong></div><div><p>Approved by</p><strong>________________________</strong></div></div></div></body></html>`;
     }
 
-    function printDocumentMarkup(documentMarkup) {
-        const parsedDocument = new DOMParser().parseFromString(documentMarkup, "text/html");
-        const printRoot = document.createElement("div");
-        const printStyle = document.createElement("style");
-        const cleanup = () => {
-            document.body.classList.remove("is-printing-document");
-            printRoot.remove();
-            printStyle.remove();
-            window.removeEventListener("afterprint", cleanup);
-        };
+    function openPrintDocument(documentMarkup) {
+        const key = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        localStorage.setItem(`printDocument:${key}`, documentMarkup);
+        const printWindow = window.open(`receipt-print.html?key=${encodeURIComponent(key)}`, "_blank");
 
-        printRoot.id = "active-print-root";
-        printRoot.innerHTML = parsedDocument.body.innerHTML;
-        printStyle.textContent = `
-            #active-print-root {
-                position: fixed !important;
-                left: -10000px !important;
-                top: 0 !important;
-                width: 72mm !important;
-                background: #fff !important;
-                color: #111 !important;
-            }
-            @media print {
-                body.is-printing-document > *:not(#active-print-root) { display: none !important; }
-                #active-print-root {
-                    position: static !important;
-                    left: auto !important;
-                    top: auto !important;
-                    display: block !important;
-                    width: 72mm !important;
-                    margin: 0 auto !important;
-                }
-                body { margin: 0 !important; background: #fff !important; }
-            }
-            ${[...parsedDocument.querySelectorAll("style")].map((style) => style.textContent).join("\n")}
-        `;
-
-        document.head.appendChild(printStyle);
-        document.body.appendChild(printRoot);
-        document.body.classList.add("is-printing-document");
-        window.addEventListener("afterprint", cleanup);
-        window.setTimeout(() => {
-            window.print();
-            window.setTimeout(cleanup, 1500);
-        }, 250);
+        if (!printWindow) {
+            setStatus("Please allow popups so the print page can open.", "error");
+        }
     }
 
     function printSalesReport(report) {
-        printDocumentMarkup(getSalesPrintDocument(report));
+        openPrintDocument(getSalesPrintDocument(report));
     }
 
     function printClosingSummary(report) {
-        printDocumentMarkup(getClosingSummaryDocument(report));
+        openPrintDocument(getClosingSummaryDocument(report));
     }
 
     function buildReceipt(order) {
@@ -848,7 +811,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function printOrderReceipt(order) {
-        printDocumentMarkup(getReceiptPrintDocument(order));
+        openPrintDocument(getReceiptPrintDocument(order));
     }
 
     function playNewOrderAlert() {

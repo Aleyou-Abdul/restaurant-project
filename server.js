@@ -1334,7 +1334,7 @@ function buildContentSecurityPolicy() {
     return [
         "default-src 'self'",
         "script-src 'self' https://js.paystack.co",
-        "style-src 'self' https://fonts.googleapis.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "font-src 'self' https://fonts.gstatic.com data:",
         "img-src 'self' https: data:",
         "connect-src 'self' https://api.paystack.co https://*.paystack.co",

@@ -470,50 +470,13 @@
     }
 
     function printReceiptDocument(receipt) {
-        const parsedDocument = new DOMParser().parseFromString(getReceiptPrintDocument(receipt), "text/html");
-        const printRoot = document.createElement("div");
-        const printStyle = document.createElement("style");
-        const cleanup = () => {
-            document.body.classList.remove("is-printing-document");
-            printRoot.remove();
-            printStyle.remove();
-            window.removeEventListener("afterprint", cleanup);
-        };
+        const key = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        localStorage.setItem(`printDocument:${key}`, getReceiptPrintDocument(receipt));
+        const printWindow = window.open(`receipt-print.html?key=${encodeURIComponent(key)}`, "_blank");
 
-        printRoot.id = "active-print-root";
-        printRoot.innerHTML = parsedDocument.body.innerHTML;
-        printStyle.textContent = `
-            #active-print-root {
-                position: fixed !important;
-                left: -10000px !important;
-                top: 0 !important;
-                width: 72mm !important;
-                background: #fff !important;
-                color: #111 !important;
-            }
-            @media print {
-                body.is-printing-document > *:not(#active-print-root) { display: none !important; }
-                #active-print-root {
-                    position: static !important;
-                    left: auto !important;
-                    top: auto !important;
-                    display: block !important;
-                    width: 72mm !important;
-                    margin: 0 auto !important;
-                }
-                body { margin: 0 !important; background: #fff !important; }
-            }
-            ${[...parsedDocument.querySelectorAll("style")].map((style) => style.textContent).join("\n")}
-        `;
-
-        document.head.appendChild(printStyle);
-        document.body.appendChild(printRoot);
-        document.body.classList.add("is-printing-document");
-        window.addEventListener("afterprint", cleanup);
-        window.setTimeout(() => {
-            window.print();
-            window.setTimeout(cleanup, 1500);
-        }, 250);
+        if (!printWindow) {
+            alert("Please allow popups so the receipt print page can open.");
+        }
     }
 
     function renderReceipt(receipt) {
