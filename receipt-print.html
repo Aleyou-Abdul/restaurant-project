@@ -5,11 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Print Receipt</title>
     <link rel="stylesheet" href="style.css?v=20260618b">
+    <style>
+        body {
+            margin: 0;
+            background: #fff;
+            color: #111;
+        }
+
+        .print-loading,
+        .print-error {
+            padding: 24px;
+            font-family: Arial, sans-serif;
+        }
+    </style>
 </head>
 <body>
     <main id="print-root" class="print-loading">
         <p>Preparing print view...</p>
     </main>
-    <script src="receipt-print.js?v=20260618a"></script>
+    <script src="receipt-print.js?v=20260618b"></script>
 </body>
 </html>
