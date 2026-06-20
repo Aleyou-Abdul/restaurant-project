@@ -44,9 +44,10 @@
 
     const isReceipt = Boolean(parsedDocument.querySelector(".print-shell"));
     const pageStyle = document.createElement("style");
-    pageStyle.textContent = isReceipt
-        ? `
-            @page { size: 80mm 297mm; margin: 1mm; }
+
+    function getReceiptPageStyle(heightMm) {
+        return `
+            @page { size: 80mm ${heightMm}mm; margin: 1mm; }
             html, body { width: 80mm; min-width: 80mm; max-width: 80mm; margin: 0 auto; background: #fff; }
             #print-root { width: 72mm; margin: 0 auto; padding: 0; }
             #print-root .print-shell { width: 72mm !important; max-width: 72mm !important; margin: 0 auto !important; }
@@ -54,7 +55,11 @@
                 html, body { width: 80mm !important; min-width: 80mm !important; max-width: 80mm !important; }
                 #print-root { width: 72mm !important; max-width: 72mm !important; margin: 0 auto !important; padding: 0 !important; }
             }
-        `
+        `;
+    }
+
+    pageStyle.textContent = isReceipt
+        ? getReceiptPageStyle(170)
         : `
             @page { size: A4; margin: 14mm; }
             html, body { margin: 0; background: #fff; }
@@ -64,6 +69,18 @@
     document.body.className = isReceipt ? "receipt-print-body" : "report-print-body";
     root.className = "";
     root.innerHTML = parsedDocument.body.innerHTML;
+
+    function updateReceiptPaperHeight() {
+        if (!isReceipt) {
+            return;
+        }
+
+        const receipt = root.querySelector(".print-shell") || root;
+        const receiptHeightPx = Math.max(receipt.scrollHeight, receipt.getBoundingClientRect().height);
+        const receiptHeightMm = Math.ceil((receiptHeightPx * 25.4) / 96);
+        const paperHeightMm = Math.min(Math.max(receiptHeightMm + 8, 95), 297);
+        pageStyle.textContent = getReceiptPageStyle(paperHeightMm);
+    }
 
     function waitForImages() {
         const images = [...document.images];
@@ -85,6 +102,7 @@
     }
 
     function printSoon() {
+        updateReceiptPaperHeight();
         window.print();
         window.setTimeout(() => {
             localStorage.removeItem(storageKey);
