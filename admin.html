@@ -317,6 +317,35 @@
                             <input id="site-closing-time" type="time">
                         </div>
                         <div class="admin-field admin-field-wide">
+                            <label>Printer Settings</label>
+                            <p class="admin-helper-text">If receipt text cuts off on the right side, try 58mm paper first, then reduce content width or print scale and use Test Print.</p>
+                        </div>
+                        <div class="admin-field">
+                            <label for="site-printer-paper-width">Receipt Paper Width</label>
+                            <select id="site-printer-paper-width">
+                                <option value="80">80mm POS paper</option>
+                                <option value="58">58mm POS paper</option>
+                            </select>
+                        </div>
+                        <div class="admin-field">
+                            <label for="site-printer-content-width">Receipt Content Width (mm)</label>
+                            <input id="site-printer-content-width" type="number" min="42" max="76" step="1" placeholder="72">
+                        </div>
+                        <div class="admin-field">
+                            <label for="site-printer-scale">Receipt Print Scale</label>
+                            <select id="site-printer-scale">
+                                <option value="1">100% - Normal</option>
+                                <option value="0.95">95% - Slightly smaller</option>
+                                <option value="0.9">90% - Safer fit</option>
+                                <option value="0.85">85% - Narrow printer</option>
+                                <option value="0.8">80% - Very narrow</option>
+                            </select>
+                        </div>
+                        <div class="admin-field">
+                            <label>Printer Test</label>
+                            <button id="site-printer-test-btn" class="admin-upload-btn" type="button">Print Test Receipt</button>
+                        </div>
+                        <div class="admin-field admin-field-wide">
                             <label>Hero Slider Images</label>
                             <p class="admin-helper-text">Upload up to 3 pictures for the homepage slider.</p>
                             <div class="admin-slider-upload-grid">
@@ -363,6 +392,6 @@
         </main>
     </div>
 
-    <script src="admin.js?v=20260620a"></script>
+    <script src="admin.js?v=20260620c"></script>
 </body>
 </html>

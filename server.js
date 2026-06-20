@@ -1871,7 +1871,10 @@ function defaultSiteData() {
             phone: "08000000000",
             email: "myrestaurant@gmail.com",
             location: "Kaduna, Nigeria",
-            whatsappNumber: "2348000000000"
+            whatsappNumber: "2348000000000",
+            printerPaperWidth: 80,
+            printerContentWidth: 72,
+            printerScale: 0.9
         },
         categories: [
             "Food",
@@ -1923,6 +1926,8 @@ function normalizeSiteData(rawData) {
             .filter(Boolean)
     )];
     const fallbackCategory = categories[0] || defaults.categories[0];
+    const printerPaperWidth = normalizePrinterNumber(site.printerPaperWidth, defaults.site.printerPaperWidth, 58, 80);
+    const defaultPrinterContentWidth = printerPaperWidth === 58 ? 50 : defaults.site.printerContentWidth;
 
     return {
         site: {
@@ -1938,7 +1943,10 @@ function normalizeSiteData(rawData) {
             phone: String(site.phone || defaults.site.phone).trim(),
             email: String(site.email || defaults.site.email).trim(),
             location: String(site.location || defaults.site.location).trim(),
-            whatsappNumber: String(site.whatsappNumber || defaults.site.whatsappNumber).trim()
+            whatsappNumber: String(site.whatsappNumber || defaults.site.whatsappNumber).trim(),
+            printerPaperWidth,
+            printerContentWidth: normalizePrinterNumber(site.printerContentWidth, defaultPrinterContentWidth, 42, printerPaperWidth === 58 ? 54 : 76),
+            printerScale: normalizePrinterNumber(site.printerScale, defaults.site.printerScale, 0.8, 1)
         },
         categories: categories.length ? categories : defaults.categories,
         menuItems: menuItems
@@ -1956,6 +1964,16 @@ function normalizeSiteData(rawData) {
             }))
             .filter((zone) => zone.value && zone.label && zone.fee >= 0)
     };
+}
+
+function normalizePrinterNumber(value, fallbackValue, minValue, maxValue) {
+    const numericValue = Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+        return fallbackValue;
+    }
+
+    return Math.min(maxValue, Math.max(minValue, numericValue));
 }
 
 async function readSiteData() {

@@ -58,6 +58,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const adminSalesTotalValueEl = document.getElementById("admin-sales-total-value");
     const adminSalesFooterTotalEl = document.getElementById("admin-sales-footer-total");
     const adminClosingHistoryEl = document.getElementById("admin-closing-history");
+    const printerPaperWidthEl = document.getElementById("site-printer-paper-width");
+    const printerContentWidthEl = document.getElementById("site-printer-content-width");
+    const printerScaleEl = document.getElementById("site-printer-scale");
+    const printerTestBtn = document.getElementById("site-printer-test-btn");
 
     let ordersCache = [];
     let previousPendingCount = 0;
@@ -77,6 +81,32 @@ document.addEventListener("DOMContentLoaded", () => {
             phone: readInput("site-phone") || "",
             location: readInput("site-location") || ""
         };
+    }
+
+    function getPrinterSettings(site = {}) {
+        const paperWidth = Number(site.printerPaperWidth || printerPaperWidthEl.value || 80);
+        const contentWidth = Number(site.printerContentWidth || printerContentWidthEl.value || (paperWidth >= 80 ? 72 : 50));
+        const scale = Number(site.printerScale || printerScaleEl.value || 0.9);
+
+        return {
+            paperWidth: paperWidth === 58 ? 58 : 80,
+            contentWidth: Math.min(Math.max(contentWidth, 42), paperWidth === 58 ? 54 : 76),
+            scale: Math.min(Math.max(scale, 0.8), 1)
+        };
+    }
+
+    function syncPrinterContentLimit() {
+        const paperWidth = Number(printerPaperWidthEl.value || 80) === 58 ? 58 : 80;
+        const maxWidth = paperWidth === 58 ? 54 : 76;
+        const defaultWidth = paperWidth === 58 ? 50 : 72;
+        const currentWidth = Number(printerContentWidthEl.value || defaultWidth);
+
+        printerContentWidthEl.max = String(maxWidth);
+        printerContentWidthEl.placeholder = String(defaultWidth);
+
+        if (!printerContentWidthEl.value || currentWidth > maxWidth) {
+            printerContentWidthEl.value = String(defaultWidth);
+        }
     }
 
     function formatPrice(amount) {
@@ -185,6 +215,11 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("site-hero-subtitle").value = site.heroSubtitle || "";
         document.getElementById("site-opening-time").value = site.openingTime || "";
         document.getElementById("site-closing-time").value = site.closingTime || "";
+        const printerSettings = getPrinterSettings(site);
+        printerPaperWidthEl.value = String(printerSettings.paperWidth);
+        printerContentWidthEl.value = String(printerSettings.contentWidth);
+        printerScaleEl.value = String(printerSettings.scale);
+        syncPrinterContentLimit();
         updateSiteLogoPreview(site.logoPath || "");
         updateHeroSlideControls(site.heroSlides || []);
     }
@@ -490,6 +525,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function collectSiteData() {
         const menuRows = [...menuAdminListEl.children];
+        const printerSettings = getPrinterSettings();
         const menuItems = menuRows.map((row, index) => {
             const name = row.querySelector('[data-field="name"]').value.trim();
             const price = Number(row.querySelector('[data-field="price"]').value || 0);
@@ -533,7 +569,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 location: readInput("site-location"),
                 whatsappNumber: readInput("site-whatsapp"),
                 heroTitle: readInput("site-hero-title"),
-                heroSubtitle: readInput("site-hero-subtitle")
+                heroSubtitle: readInput("site-hero-subtitle"),
+                printerPaperWidth: printerSettings.paperWidth,
+                printerContentWidth: printerSettings.contentWidth,
+                printerScale: printerSettings.scale
             },
             categories: getCurrentCategories(),
             menuItems,
@@ -804,11 +843,40 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function getReceiptPrintDocument(order) {
-        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Receipt ${escapeHtml(order.reference)}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css?v=20260512e"><style>@page{size:80mm 297mm;margin:1mm}body{width:80mm;margin:0 auto;padding:0;background:#fff;color:#111;font-family:Poppins,Arial,sans-serif}.print-shell{width:72mm;margin:0 auto;zoom:.9}.print-shell .receipt-card{margin-top:0;padding:5px 5px 3px;border:none;border-radius:0;background:#fcfcfc;box-shadow:none}.print-shell .receipt-pos{width:min(100%,280px);gap:3px;font-size:10px}.print-shell .receipt-logo{width:50px;height:50px;margin:0 auto 3px}.print-shell .receipt-thermal-brand h4{font-size:13px;line-height:1}.print-shell .receipt-thermal-contact{font-size:8px;line-height:1.05}.print-shell .receipt-kicker{margin-top:1px;font-size:8px;letter-spacing:.06em}.print-shell .receipt-divider{margin:3px 0}.print-shell .receipt-thermal-title{font-size:14px;margin:1px 0}.print-shell .receipt-thermal-meta{font-size:8px;gap:3px}.print-shell .receipt-thermal-table-head,.print-shell .receipt-thermal-item{grid-template-columns:24px 1fr auto;gap:4px}.print-shell .receipt-thermal-table-head{font-size:8px}.print-shell .receipt-thermal-item{padding:2px 0;font-size:9px}.print-shell .receipt-thermal-count{margin:3px 0;font-size:9px}.print-shell .receipt-breakdown{gap:1px}.print-shell .receipt-breakdown p{font-size:9px;gap:4px}.print-shell .receipt-total-row{margin-top:3px;padding-top:3px;font-size:12px;gap:4px}.print-shell .receipt-total-row strong{font-size:16px}.print-shell .receipt-thermal-details{gap:1px}.print-shell .receipt-thermal-details p{font-size:8px;gap:3px;line-height:1}.print-shell .receipt-thank-you{margin:4px 0 3px;font-size:12px}.receipt-footer-meta{margin-top:3px;padding-top:3px;border-top:1px dashed #777;display:flex;justify-content:space-between;gap:3px;font-size:7px;font-family:'Courier New',monospace;page-break-inside:avoid}.receipt-footer-meta span:last-child{text-align:right}@media print{body{width:80mm;padding:0}.print-shell{width:72mm;zoom:.9}}</style></head><body><div class="print-shell"><section class="receipt-card">${buildReceipt(order)}<div class="receipt-footer-meta"><span>${escapeHtml(order.reference)}</span><span>${escapeHtml(order.date || "-")}</span></div></section></div></body></html>`;
+        const printer = getPrinterSettings();
+        return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Receipt ${escapeHtml(order.reference)}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css?v=20260512e"><style>@page{size:${printer.paperWidth}mm 297mm;margin:1mm}body{width:${printer.paperWidth}mm;margin:0 auto;padding:0;background:#fff;color:#111;font-family:Poppins,Arial,sans-serif}.print-shell{width:${printer.contentWidth}mm;margin:0 auto;zoom:${printer.scale}}.print-shell .receipt-card{margin-top:0;padding:5px 5px 3px;border:none;border-radius:0;background:#fcfcfc;box-shadow:none}.print-shell .receipt-pos{width:min(100%,280px);gap:3px;font-size:10px}.print-shell .receipt-logo{width:50px;height:50px;margin:0 auto 3px}.print-shell .receipt-thermal-brand h4{font-size:13px;line-height:1}.print-shell .receipt-thermal-contact{font-size:8px;line-height:1.05}.print-shell .receipt-kicker{margin-top:1px;font-size:8px;letter-spacing:.06em}.print-shell .receipt-divider{margin:3px 0}.print-shell .receipt-thermal-title{font-size:14px;margin:1px 0}.print-shell .receipt-thermal-meta{font-size:8px;gap:3px}.print-shell .receipt-thermal-table-head,.print-shell .receipt-thermal-item{grid-template-columns:24px 1fr auto;gap:4px}.print-shell .receipt-thermal-table-head{font-size:8px}.print-shell .receipt-thermal-item{padding:2px 0;font-size:9px}.print-shell .receipt-thermal-count{margin:3px 0;font-size:9px}.print-shell .receipt-breakdown{gap:1px}.print-shell .receipt-breakdown p{font-size:9px;gap:4px}.print-shell .receipt-total-row{margin-top:3px;padding-top:3px;font-size:12px;gap:4px}.print-shell .receipt-total-row strong{font-size:16px}.print-shell .receipt-thermal-details{gap:1px}.print-shell .receipt-thermal-details p{font-size:8px;gap:3px;line-height:1}.print-shell .receipt-thank-you{margin:4px 0 3px;font-size:12px}.receipt-footer-meta{margin-top:3px;padding-top:3px;border-top:1px dashed #777;display:flex;justify-content:space-between;gap:3px;font-size:7px;font-family:'Courier New',monospace;page-break-inside:avoid}.receipt-footer-meta span:last-child{text-align:right}@media print{body{width:${printer.paperWidth}mm;padding:0}.print-shell{width:${printer.contentWidth}mm;zoom:${printer.scale}}}</style></head><body><div class="print-shell" data-paper-width="${printer.paperWidth}" data-content-width="${printer.contentWidth}" data-print-scale="${printer.scale}"><section class="receipt-card">${buildReceipt(order)}<div class="receipt-footer-meta"><span>${escapeHtml(order.reference)}</span><span>${escapeHtml(order.date || "-")}</span></div></section></div></body></html>`;
     }
 
     function printOrderReceipt(order) {
         openPrintDocument(getReceiptPrintDocument(order));
+    }
+
+    function printPrinterTestReceipt() {
+        const printer = getPrinterSettings();
+        const now = new Date();
+        const testOrder = {
+            reference: `TEST-${Date.now()}`,
+            date: now.toLocaleString("en-NG", {
+                dateStyle: "short",
+                timeStyle: "short"
+            }),
+            customerPhone: "08000000000",
+            email: "printer-test@example.com",
+            deliveryArea: "Printer setup",
+            deliveryLocation: "Counter pickup",
+            fulfillmentType: "pickup",
+            attendedBy: "Admin test",
+            orderNote: `${printer.paperWidth}mm paper, ${printer.contentWidth}mm content, ${Math.round(printer.scale * 100)}% scale`,
+            deliveryFee: 0,
+            serviceFee: 100,
+            items: [
+                { name: "Printer test item", quantity: 1, price: 1000 },
+                { name: "Long item name fit check", quantity: 1, price: 1500 }
+            ],
+            total: 2600
+        };
+
+        openPrintDocument(getReceiptPrintDocument(testOrder));
     }
 
     function playNewOrderAlert() {
@@ -1401,6 +1469,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     adminSalesDownloadBtn.addEventListener("click", () => {
         printSalesReport(salesReportCache);
+    });
+
+    printerPaperWidthEl.addEventListener("change", syncPrinterContentLimit);
+
+    printerTestBtn.addEventListener("click", () => {
+        syncPrinterContentLimit();
+        printPrinterTestReceipt();
     });
 
     adminSalesClosingBtn.addEventListener("click", async () => {

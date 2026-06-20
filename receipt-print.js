@@ -42,18 +42,26 @@
         document.head.appendChild(printStyle);
     });
 
-    const isReceipt = Boolean(parsedDocument.querySelector(".print-shell"));
+    const receiptShell = parsedDocument.querySelector(".print-shell");
+    const isReceipt = Boolean(receiptShell);
+    const paperWidth = Number(receiptShell && receiptShell.dataset.paperWidth) === 58 ? 58 : 80;
+    const defaultContentWidth = paperWidth === 58 ? 50 : 72;
+    const contentWidth = Math.min(
+        Math.max(Number(receiptShell && receiptShell.dataset.contentWidth) || defaultContentWidth, 42),
+        paperWidth === 58 ? 54 : 76
+    );
+    const printScale = Math.min(Math.max(Number(receiptShell && receiptShell.dataset.printScale) || 0.9, 0.8), 1);
     const pageStyle = document.createElement("style");
 
     function getReceiptPageStyle(heightMm) {
         return `
-            @page { size: 80mm ${heightMm}mm; margin: 1mm; }
-            html, body { width: 80mm; min-width: 80mm; max-width: 80mm; margin: 0 auto; background: #fff; }
-            #print-root { width: 72mm; margin: 0 auto; padding: 0; }
-            #print-root .print-shell { width: 72mm !important; max-width: 72mm !important; margin: 0 auto !important; }
+            @page { size: ${paperWidth}mm ${heightMm}mm; margin: 1mm; }
+            html, body { width: ${paperWidth}mm; min-width: ${paperWidth}mm; max-width: ${paperWidth}mm; margin: 0 auto; background: #fff; }
+            #print-root { width: ${contentWidth}mm; margin: 0 auto; padding: 0; }
+            #print-root .print-shell { width: ${contentWidth}mm !important; max-width: ${contentWidth}mm !important; margin: 0 auto !important; zoom: ${printScale} !important; }
             @media print {
-                html, body { width: 80mm !important; min-width: 80mm !important; max-width: 80mm !important; }
-                #print-root { width: 72mm !important; max-width: 72mm !important; margin: 0 auto !important; padding: 0 !important; }
+                html, body { width: ${paperWidth}mm !important; min-width: ${paperWidth}mm !important; max-width: ${paperWidth}mm !important; }
+                #print-root { width: ${contentWidth}mm !important; max-width: ${contentWidth}mm !important; margin: 0 auto !important; padding: 0 !important; }
             }
         `;
     }
