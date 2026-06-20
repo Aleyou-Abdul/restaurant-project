@@ -25,6 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let audioPrimed = false;
     let staffAudioContext = null;
     let stockEditHoldUntil = 0;
+    let activeSectionName = "orders";
 
     function formatPrice(amount) {
         return `\u20A6${Number(amount || 0)}`;
@@ -59,18 +60,20 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function markStockEditing() {
-        stockEditHoldUntil = Date.now() + 15000;
+        stockEditHoldUntil = Date.now() + 30 * 60 * 1000;
     }
 
     function clearStockEditing() {
-        stockEditHoldUntil = 0;
+        const hasDirtyRows = Boolean(staffStockListEl.querySelector('[data-dirty="true"]'));
+        stockEditHoldUntil = hasDirtyRows ? Date.now() + 30 * 60 * 1000 : 0;
     }
 
     function isStockEditingLocked() {
-        return Date.now() < stockEditHoldUntil;
+        return activeSectionName === "stock" || Date.now() < stockEditHoldUntil;
     }
 
     function setActiveSection(sectionName) {
+        activeSectionName = sectionName;
         const titles = {
             orders: "Orders Queue",
             stock: "Stock Control"
@@ -383,6 +386,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function saveStock(itemId, row) {
+        const saveButton = row.querySelector("button");
+
         try {
             const availability = row.querySelector('[data-field="availability"]').value.trim();
             const stockQuantity = row.querySelector('[data-field="stockQuantity"]').value.trim();
@@ -393,7 +398,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
             markStockEditing();
             setStatus(`Saving stock for ${itemId}...`, "info");
-            await fetchJson("/api/staff/menu-stock", {
+            saveButton.disabled = true;
+            saveButton.textContent = "Saving...";
+            const data = await fetchJson("/api/staff/menu-stock", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -405,11 +412,26 @@ document.addEventListener("DOMContentLoaded", () => {
                 })
             });
 
+            if (siteDataCache && Array.isArray(siteDataCache.menuItems) && data.item) {
+                siteDataCache.menuItems = siteDataCache.menuItems.map((item) => (
+                    String(item.id || "") === String(itemId || "") ? data.item : item
+                ));
+            }
+
+            if (data.item) {
+                row.querySelector('[data-field="availability"]').value = data.item.availability || "available";
+                row.querySelector('[data-field="stockQuantity"]').value =
+                    data.item.stockQuantity === null || data.item.stockQuantity === undefined ? "" : Number(data.item.stockQuantity);
+            }
+
+            row.dataset.dirty = "false";
             clearStockEditing();
-            await loadDashboard();
             setStatus("Stock updated successfully.", "success");
         } catch (error) {
             setStatus(error.message, "error");
+        } finally {
+            saveButton.disabled = false;
+            saveButton.textContent = "Save Stock";
         }
     }
 
@@ -420,6 +442,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const quantityValue = item.stockQuantity === null || item.stockQuantity === undefined ? "" : Number(item.stockQuantity);
             const row = document.createElement("article");
             row.className = "admin-repeat-row";
+            row.dataset.dirty = "false";
             row.innerHTML = `
                 <div class="admin-user-meta">
                     <strong>${escapeHtml(item.name)}</strong>
@@ -443,6 +466,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const availabilityEl = row.querySelector('[data-field="availability"]');
             const stockQuantityEl = row.querySelector('[data-field="stockQuantity"]');
+            const markRowDirty = () => {
+                row.dataset.dirty = "true";
+                markStockEditing();
+            };
             const syncAvailabilityWithQuantity = () => {
                 const quantityValueRaw = stockQuantityEl.value.trim();
 
@@ -465,10 +492,10 @@ document.addEventListener("DOMContentLoaded", () => {
             };
 
             stockQuantityEl.addEventListener("input", syncAvailabilityWithQuantity);
-            stockQuantityEl.addEventListener("input", markStockEditing);
+            stockQuantityEl.addEventListener("input", markRowDirty);
             stockQuantityEl.addEventListener("focus", markStockEditing);
             availabilityEl.addEventListener("change", () => {
-                markStockEditing();
+                markRowDirty();
                 if (availabilityEl.value === "hidden") {
                     return;
                 }
@@ -546,6 +573,12 @@ document.addEventListener("DOMContentLoaded", () => {
     staffNavButtons.forEach((button) => {
         button.addEventListener("click", () => {
             setActiveSection(button.dataset.section);
+
+            if (button.dataset.section === "stock" && !staffStockListEl.children.length) {
+                loadDashboard({ renderStock: true }).catch((error) => {
+                    setStatus(error.message, "error");
+                });
+            }
         });
     });
 
@@ -576,10 +609,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     staffRefreshBtn.addEventListener("click", async () => {
         try {
+            const canRefreshStock = activeSectionName !== "stock";
             setStatus("Refreshing dashboard...", "info");
-            clearStockEditing();
-            await loadDashboard();
-            setStatus("Dashboard is up to date.", "success");
+
+            if (canRefreshStock) {
+                clearStockEditing();
+            }
+
+            await loadDashboard({ renderStock: canRefreshStock });
+            setStatus(canRefreshStock ? "Dashboard is up to date." : "Orders refreshed. Stock edits were kept in place.", "success");
         } catch (error) {
             setStatus(error.message, "error");
         }
