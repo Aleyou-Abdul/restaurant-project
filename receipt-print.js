@@ -1,6 +1,7 @@
 (function () {
     const params = new URLSearchParams(window.location.search);
     const key = params.get("key");
+    const returnUrl = params.get("return") || "";
     const storageKey = key ? `printDocument:${key}` : "";
     const root = document.getElementById("print-root");
 
@@ -45,13 +46,13 @@
     const pageStyle = document.createElement("style");
     pageStyle.textContent = isReceipt
         ? `
-            @page { size: 80mm auto; margin: 1mm; }
-            html, body { width: 80mm; min-width: 80mm; margin: 0 auto; background: #fff; }
-            #print-root { width: 72mm; margin: 0 auto; }
-            #print-root .print-shell { width: 72mm !important; margin: 0 auto !important; }
+            @page { size: 80mm 297mm; margin: 1mm; }
+            html, body { width: 80mm; min-width: 80mm; max-width: 80mm; margin: 0 auto; background: #fff; }
+            #print-root { width: 72mm; margin: 0 auto; padding: 0; }
+            #print-root .print-shell { width: 72mm !important; max-width: 72mm !important; margin: 0 auto !important; }
             @media print {
-                html, body { width: 80mm !important; min-width: 80mm !important; }
-                #print-root { width: 72mm !important; margin: 0 auto !important; }
+                html, body { width: 80mm !important; min-width: 80mm !important; max-width: 80mm !important; }
+                #print-root { width: 72mm !important; max-width: 72mm !important; margin: 0 auto !important; padding: 0 !important; }
             }
         `
         : `
@@ -89,6 +90,16 @@
             localStorage.removeItem(storageKey);
         }, 1000);
     }
+
+    window.addEventListener("afterprint", () => {
+        localStorage.removeItem(storageKey);
+
+        if (returnUrl) {
+            window.setTimeout(() => {
+                window.location.href = returnUrl;
+            }, 250);
+        }
+    });
 
     Promise.race([
         waitForImages(),
