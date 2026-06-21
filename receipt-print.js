@@ -47,21 +47,28 @@
     const paperWidth = Number(receiptShell && receiptShell.dataset.paperWidth) === 58 ? 58 : 80;
     const defaultContentWidth = paperWidth === 58 ? 50 : 72;
     const contentWidth = Math.min(
-        Math.max(Number(receiptShell && receiptShell.dataset.contentWidth) || defaultContentWidth, 42),
+        Math.max(Number(receiptShell && receiptShell.dataset.contentWidth) || defaultContentWidth, 30),
         paperWidth === 58 ? 54 : 76
     );
-    const printScale = Math.min(Math.max(Number(receiptShell && receiptShell.dataset.printScale) || 0.9, 0.8), 1);
+    const printScale = Math.min(Math.max(Number(receiptShell && receiptShell.dataset.printScale) || 0.9, 0.6), 1);
+    const scaledLayoutWidth = Math.ceil((contentWidth / printScale) * 100) / 100;
     const pageStyle = document.createElement("style");
 
     function getReceiptPageStyle(heightMm) {
         return `
             @page { size: ${paperWidth}mm ${heightMm}mm; margin: 1mm; }
-            html, body { width: ${paperWidth}mm; min-width: ${paperWidth}mm; max-width: ${paperWidth}mm; margin: 0 auto; background: #fff; }
-            #print-root { width: ${contentWidth}mm; margin: 0 auto; padding: 0; }
-            #print-root .print-shell { width: ${contentWidth}mm !important; max-width: ${contentWidth}mm !important; margin: 0 auto !important; zoom: ${printScale} !important; }
+            html, body { width: ${paperWidth}mm; min-width: ${paperWidth}mm; max-width: ${paperWidth}mm; margin: 0; background: #fff; overflow: visible; }
+            #print-root { width: ${paperWidth}mm; margin: 0; padding: 0; overflow: visible; }
+            #print-root .print-shell {
+                width: ${scaledLayoutWidth}mm !important;
+                max-width: ${scaledLayoutWidth}mm !important;
+                margin: 0 !important;
+                transform: scale(${printScale}) !important;
+                transform-origin: top left !important;
+            }
             @media print {
                 html, body { width: ${paperWidth}mm !important; min-width: ${paperWidth}mm !important; max-width: ${paperWidth}mm !important; }
-                #print-root { width: ${contentWidth}mm !important; max-width: ${contentWidth}mm !important; margin: 0 auto !important; padding: 0 !important; }
+                #print-root { width: ${paperWidth}mm !important; max-width: ${paperWidth}mm !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
             }
         `;
     }
@@ -84,7 +91,7 @@
         }
 
         const receipt = root.querySelector(".print-shell") || root;
-        const receiptHeightPx = Math.max(receipt.scrollHeight, receipt.getBoundingClientRect().height);
+        const receiptHeightPx = receipt.getBoundingClientRect().height || receipt.scrollHeight;
         const receiptHeightMm = Math.ceil((receiptHeightPx * 25.4) / 96);
         const paperHeightMm = Math.min(Math.max(receiptHeightMm + 8, 95), 297);
         pageStyle.textContent = getReceiptPageStyle(paperHeightMm);

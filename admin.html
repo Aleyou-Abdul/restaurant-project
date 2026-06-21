@@ -329,7 +329,7 @@
                         </div>
                         <div class="admin-field">
                             <label for="site-printer-content-width">Receipt Content Width (mm)</label>
-                            <input id="site-printer-content-width" type="number" min="42" max="76" step="1" placeholder="72">
+                            <input id="site-printer-content-width" type="number" min="30" max="76" step="1" placeholder="72">
                         </div>
                         <div class="admin-field">
                             <label for="site-printer-scale">Receipt Print Scale</label>
@@ -339,6 +339,10 @@
                                 <option value="0.9">90% - Safer fit</option>
                                 <option value="0.85">85% - Narrow printer</option>
                                 <option value="0.8">80% - Very narrow</option>
+                                <option value="0.75">75% - Safe narrow</option>
+                                <option value="0.7">70% - Extra safe</option>
+                                <option value="0.65">65% - Half-width fix</option>
+                                <option value="0.6">60% - Emergency fit</option>
                             </select>
                         </div>
                         <div class="admin-field">
@@ -392,6 +396,6 @@
         </main>
     </div>
 
-    <script src="admin.js?v=20260620c"></script>
+    <script src="admin.js?v=20260621a"></script>
 </body>
 </html>

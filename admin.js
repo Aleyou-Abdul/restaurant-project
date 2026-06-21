@@ -90,8 +90,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         return {
             paperWidth: paperWidth === 58 ? 58 : 80,
-            contentWidth: Math.min(Math.max(contentWidth, 42), paperWidth === 58 ? 54 : 76),
-            scale: Math.min(Math.max(scale, 0.8), 1)
+            contentWidth: Math.min(Math.max(contentWidth, 30), paperWidth === 58 ? 54 : 76),
+            scale: Math.min(Math.max(scale, 0.6), 1)
         };
     }
 
@@ -866,7 +866,7 @@ document.addEventListener("DOMContentLoaded", () => {
             deliveryLocation: "Counter pickup",
             fulfillmentType: "pickup",
             attendedBy: "Admin test",
-            orderNote: `${printer.paperWidth}mm paper, ${printer.contentWidth}mm content, ${Math.round(printer.scale * 100)}% scale`,
+            orderNote: `${printer.paperWidth}mm paper, ${printer.contentWidth}mm content, ${Math.round(printer.scale * 100)}% scale, left aligned`,
             deliveryFee: 0,
             serviceFee: 100,
             items: [

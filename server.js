@@ -1945,8 +1945,8 @@ function normalizeSiteData(rawData) {
             location: String(site.location || defaults.site.location).trim(),
             whatsappNumber: String(site.whatsappNumber || defaults.site.whatsappNumber).trim(),
             printerPaperWidth,
-            printerContentWidth: normalizePrinterNumber(site.printerContentWidth, defaultPrinterContentWidth, 42, printerPaperWidth === 58 ? 54 : 76),
-            printerScale: normalizePrinterNumber(site.printerScale, defaults.site.printerScale, 0.8, 1)
+            printerContentWidth: normalizePrinterNumber(site.printerContentWidth, defaultPrinterContentWidth, 30, printerPaperWidth === 58 ? 54 : 76),
+            printerScale: normalizePrinterNumber(site.printerScale, defaults.site.printerScale, 0.6, 1)
         },
         categories: categories.length ? categories : defaults.categories,
         menuItems: menuItems
