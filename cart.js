@@ -60,7 +60,7 @@
     }
 
     async function fetchJson(url, options) {
-        const response = await fetch(url, options);
+        const response = await fetch(withRestaurantContext(url), options);
         const data = await response.json();
 
         if (!response.ok) {
@@ -68,6 +68,42 @@
         }
 
         return data;
+    }
+
+    function getRestaurantContextId() {
+        const query = new URLSearchParams(window.location.search);
+        const fromUrl = String(query.get("restaurantId") || query.get("restaurant") || "").trim();
+        const fromStorage = String(localStorage.getItem("hungerstation.restaurantId") || "").trim();
+        return fromUrl || fromStorage || "";
+    }
+
+    function syncRestaurantContext(restaurantId) {
+        const normalizedId = String(restaurantId || "").trim();
+
+        if (normalizedId) {
+            localStorage.setItem("hungerstation.restaurantId", normalizedId);
+        }
+    }
+
+    function withRestaurantContext(url) {
+        const contextId = getRestaurantContextId();
+
+        if (!contextId) {
+            return url;
+        }
+
+        try {
+            const resolvedUrl = new URL(url, window.location.href);
+
+            if (resolvedUrl.origin !== window.location.origin) {
+                return url;
+            }
+
+            resolvedUrl.searchParams.set("restaurantId", contextId);
+            return `${resolvedUrl.pathname}${resolvedUrl.search}${resolvedUrl.hash}`;
+        } catch (error) {
+            return url;
+        }
     }
 
     async function loadConfig() {
@@ -84,6 +120,7 @@
 
     async function loadSiteData() {
         siteData = await fetchJson("/api/site-data");
+        syncRestaurantContext(siteData.restaurantId || "");
         return siteData;
     }
 

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HungerStation Platform Dashboard</title>
+    <link rel="stylesheet" href="style.css?v=hungerstation-phase1">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="super-admin-body">
+    <div class="super-dashboard">
+        <aside class="super-sidebar">
+            <a class="super-brand" href="super-admin.html">Hunger<span>Station</span></a>
+            <p>Platform control</p>
+            <nav>
+                <a href="#overview">Overview</a>
+                <a href="#restaurants">Restaurants</a>
+                <a href="#create-restaurant">Add Restaurant</a>
+                <a href="#platform-settings">Platform Settings</a>
+            </nav>
+            <button id="super-admin-logout-btn" class="super-logout" type="button">Log Out</button>
+        </aside>
+        <main class="super-content">
+            <header class="super-page-header">
+                <div>
+                    <span class="super-kicker">HungerStation Platform</span>
+                    <h1>Platform Overview</h1>
+                </div>
+                <button id="super-admin-refresh-btn" class="super-secondary-btn" type="button">Refresh</button>
+            </header>
+            <p id="super-admin-status" class="payment-status" aria-live="polite"></p>
+
+            <section id="overview" class="super-stat-grid">
+                <article><span>Restaurants</span><strong id="stat-restaurants">0</strong></article>
+                <article><span>Active Restaurants</span><strong id="stat-active">0</strong></article>
+                <article><span>Pending Approval</span><strong id="stat-pending">0</strong></article>
+                <article><span>Platform Service Fees</span><strong id="stat-revenue">₦0</strong></article>
+            </section>
+
+            <section id="restaurants" class="super-panel">
+                <div class="super-panel-heading"><div><h2>Restaurants</h2><p>Approve, suspend, or remove platform tenants.</p></div></div>
+                <div class="super-table-wrap">
+                    <table class="super-table">
+                        <thead><tr><th>Restaurant</th><th>Contact</th><th>Hours</th><th>Status</th><th>Actions</th></tr></thead>
+                        <tbody id="restaurant-list"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="create-restaurant" class="super-panel">
+                <div class="super-panel-heading"><div><h2>Add Restaurant</h2><p>Manual onboarding creates a separate restaurant workspace and admin account.</p></div></div>
+                <form id="restaurant-create-form" class="super-form-grid">
+                    <label>Restaurant name<input name="name" required></label>
+                    <label>URL name<input name="slug" placeholder="e.g. tasty-kitchen"></label>
+                    <label>Phone<input name="phone" type="tel"></label>
+                    <label>Email<input name="email" type="email"></label>
+                    <label class="super-form-wide">Address<input name="address"></label>
+                    <label>Opening time<input name="openingTime" type="time" value="09:00"></label>
+                    <label>Closing time<input name="closingTime" type="time" value="22:00"></label>
+                    <label>Admin display name<input name="adminDisplayName" required></label>
+                    <label>Admin username<input name="adminUsername" required autocomplete="off"></label>
+                    <label class="super-form-wide">Temporary admin password<input name="adminPassword" type="password" required minlength="8" autocomplete="new-password"></label>
+                    <div class="super-form-wide"><button type="submit">Create Restaurant</button></div>
+                </form>
+            </section>
+
+            <section id="platform-settings" class="super-panel">
+                <div class="super-panel-heading"><div><h2>Platform Settings</h2><p>This service fee is recorded separately from restaurant food revenue.</p></div></div>
+                <form id="platform-settings-form" class="super-settings-form">
+                    <label>HungerStation service fee (₦)<input id="platform-service-fee" name="serviceFeeNaira" type="number" min="0" max="10000" step="1" required></label>
+                    <button type="submit">Save Fee</button>
+                </form>
+            </section>
+        </main>
+    </div>
+    <script src="super-admin.js"></script>
+</body>
+</html>

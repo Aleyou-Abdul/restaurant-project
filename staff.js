@@ -44,6 +44,42 @@ document.addEventListener("DOMContentLoaded", () => {
         };
     }
 
+    function getRestaurantContextId() {
+        const query = new URLSearchParams(window.location.search);
+        const fromUrl = String(query.get("restaurantId") || query.get("restaurant") || "").trim();
+        const fromStorage = String(localStorage.getItem("hungerstation.restaurantId") || "").trim();
+        return fromUrl || fromStorage || "";
+    }
+
+    function syncRestaurantContext(restaurantId) {
+        const normalizedId = String(restaurantId || "").trim();
+
+        if (normalizedId) {
+            localStorage.setItem("hungerstation.restaurantId", normalizedId);
+        }
+    }
+
+    function withRestaurantContext(url) {
+        const contextId = getRestaurantContextId();
+
+        if (!contextId) {
+            return url;
+        }
+
+        try {
+            const resolvedUrl = new URL(url, window.location.href);
+
+            if (resolvedUrl.origin !== window.location.origin) {
+                return url;
+            }
+
+            resolvedUrl.searchParams.set("restaurantId", contextId);
+            return `${resolvedUrl.pathname}${resolvedUrl.search}${resolvedUrl.hash}`;
+        } catch (error) {
+            return url;
+        }
+    }
+
     function escapeHtml(value) {
         return String(value ?? "")
             .replace(/&/g, "&amp;")
@@ -54,7 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function fetchJson(url, options) {
-        const response = await fetch(url, {
+        const response = await fetch(withRestaurantContext(url), {
             cache: "no-store",
             ...options
         });
@@ -530,6 +566,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await fetchJson("/api/staff/bootstrap");
         ordersCache = data.orders || [];
         siteDataCache = data.siteData || null;
+        syncRestaurantContext((siteDataCache && siteDataCache.restaurantId) || "");
         staffUserPillEl.textContent = data.user && data.user.displayName ? data.user.displayName : "Staff";
         renderOrders(ordersCache);
 
@@ -572,7 +609,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await fetchJson("/api/staff/session");
 
             if (!data.isAuthenticated) {
-                window.location.href = "staff-login.html";
+                window.location.href = withRestaurantContext("staff-login.html");
                 return;
             }
 
@@ -649,7 +686,7 @@ document.addEventListener("DOMContentLoaded", () => {
             // Ignore and continue redirect.
         }
 
-        window.location.href = "staff-login.html";
+        window.location.href = withRestaurantContext("staff-login.html");
     });
 
     setActiveSection("orders");

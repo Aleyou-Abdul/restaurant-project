@@ -165,6 +165,8 @@ Important `.env` values include:
 - `PAYSTACK_SPLIT_CODE`
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD_HASH`
+- `SUPER_ADMIN_USERNAME`
+- `SUPER_ADMIN_PASSWORD_HASH`
 - `STAFF_USERNAME`
 - `STAFF_DISPLAY_NAME`
 - `STAFF_PASSWORD_HASH`
@@ -174,6 +176,12 @@ Important `.env` values include:
 For free Render demos, setting the optional staff variables is recommended because temporary storage can reset staff accounts after restart or redeploy.
 
 Payments are intentionally blocked unless `PAYSTACK_SPLIT_CODE` is configured. This enforces the service-fee split before any restaurant can accept orders through the system.
+
+## HungerStation Phase 1
+
+The platform foundation adds isolated restaurant records, restaurant-specific admin accounts, and a protected Super Admin workspace at `/super-admin-login.html`.
+
+Set `SUPER_ADMIN_USERNAME` and `SUPER_ADMIN_PASSWORD_HASH` in Render before using the workspace. The Super Admin can create a restaurant, issue its first admin account, approve or suspend the restaurant, remove a non-default restaurant, and configure the platform service fee. Existing Hungry Nomad data remains in the default tenant during the migration.
 
 ## Useful Commands
 

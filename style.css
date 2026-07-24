@@ -2891,6 +2891,87 @@ nav a:hover {
     transform: translateX(-50%) translateY(0);
 }
 
+/* HungerStation platform pages stay visually separate from restaurant operations screens. */
+.super-admin-body {
+    min-height: 100vh;
+    margin: 0;
+    background: #f4f7f5;
+    color: #173126;
+    font-family: "Poppins", sans-serif;
+}
+
+.super-login-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(330px, 0.8fr);
+    gap: 48px;
+    align-items: center;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 40px 24px;
+}
+
+.super-login-intro {
+    padding: 52px;
+    border-radius: 30px;
+    color: #fff;
+    background: radial-gradient(circle at 80% 15%, #f5c468 0, transparent 28%), linear-gradient(135deg, #0c5a3d, #137c4f);
+}
+
+.super-kicker { color: #e6b64d; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+.super-login-intro h1 { max-width: 610px; margin: 14px 0; font-size: clamp(2rem, 4vw, 4rem); line-height: 1.05; }
+.super-login-intro p { max-width: 500px; opacity: 0.85; }
+.super-login-card, .super-panel { background: #fff; border: 1px solid #e1eae4; border-radius: 20px; box-shadow: 0 16px 38px rgba(20, 58, 38, 0.08); }
+.super-login-card { padding: 34px; }
+.super-login-card h2 { margin: 0 0 4px; }
+.super-login-card p { color: #617269; }
+.super-login-card label, .super-form-grid label, .super-settings-form label { display: grid; gap: 7px; color: #385246; font-size: 0.84rem; font-weight: 600; }
+.super-login-card input, .super-form-grid input, .super-settings-form input { width: 100%; box-sizing: border-box; border: 1px solid #d7e1da; border-radius: 10px; padding: 12px; font: inherit; }
+.super-login-card button, .super-form-grid button, .super-settings-form button, .super-actions button { border: 0; border-radius: 10px; padding: 11px 15px; background: #157347; color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.super-login-card button { width: 100%; margin-top: 14px; }
+.super-dashboard { min-height: 100vh; display: grid; grid-template-columns: 240px minmax(0, 1fr); }
+.super-sidebar { display: flex; flex-direction: column; gap: 14px; padding: 30px 20px; color: #dbece0; background: #103f2c; }
+.super-brand { color: #fff; font-size: 1.35rem; font-weight: 700; text-decoration: none; }
+.super-brand span { color: #f3bf4e; }
+.super-sidebar > p { margin: 0 0 20px; color: #9bc4ab; font-size: 0.8rem; }
+.super-sidebar nav { display: grid; gap: 7px; }
+.super-sidebar nav a { padding: 10px; border-radius: 8px; color: inherit; text-decoration: none; }
+.super-sidebar nav a:hover { background: rgba(255,255,255,0.11); }
+.super-logout { margin-top: auto; border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; padding: 10px; background: transparent; color: #fff; cursor: pointer; }
+.super-content { max-width: 1280px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 38px; }
+.super-page-header, .super-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.super-page-header { margin-bottom: 22px; }
+.super-page-header h1 { margin: 5px 0 0; }
+.super-secondary-btn { border: 1px solid #b9cebf; border-radius: 9px; padding: 10px 14px; background: #fff; color: #235c3e; font: inherit; font-weight: 600; cursor: pointer; }
+.super-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 22px 0; }
+.super-stat-grid article { padding: 22px; border-radius: 16px; background: #ecf5ed; }
+.super-stat-grid span, .super-table small { display: block; color: #688075; font-size: 0.78rem; }
+.super-stat-grid strong { display: block; margin-top: 8px; color: #0f5435; font-size: 1.65rem; }
+.super-panel { margin-top: 22px; padding: 24px; }
+.super-panel h2 { margin: 0; font-size: 1.1rem; }
+.super-panel-heading p { margin: 5px 0 18px; color: #6b8075; font-size: 0.85rem; }
+.super-table-wrap { overflow-x: auto; }
+.super-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+.super-table th, .super-table td { padding: 14px 10px; border-bottom: 1px solid #e7eee9; vertical-align: top; }
+.super-table th { color: #638075; font-size: 0.75rem; text-transform: uppercase; }
+.super-status { display: inline-block; border-radius: 999px; padding: 5px 9px; font-size: 0.72rem; font-weight: 700; text-transform: capitalize; }
+.super-status.active { background: #dff5e5; color: #136a38; }.super-status.pending { background: #fff1cd; color: #986200; }.super-status.suspended { background: #fee0df; color: #a4322e; }
+.super-actions { display: flex; gap: 7px; align-items: center; }.super-actions button, .super-login-link { padding: 7px 9px; font-size: 0.75rem; }.super-login-link { border-radius: 8px; background: #e4f2e8; color: #135d39; font-weight: 700; text-decoration: none; }.super-actions .danger { background: #b83a35; }
+.super-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }.super-form-wide { grid-column: 1 / -1; }
+.super-settings-form { display: flex; align-items: end; gap: 12px; max-width: 420px; }.super-settings-form label { flex: 1; }
+
+@media (max-width: 800px) {
+    .super-login-shell, .super-dashboard { grid-template-columns: 1fr; }
+    .super-login-intro { padding: 34px; }
+    .super-sidebar { min-height: auto; }.super-sidebar nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }.super-logout { margin-top: 10px; }
+    .super-content { padding: 24px 16px; }.super-stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 520px) {
+    .super-login-shell { padding: 16px; gap: 18px; }.super-login-intro, .super-login-card, .super-panel { padding: 22px; }
+    .super-form-grid, .super-stat-grid { grid-template-columns: 1fr; }.super-settings-form { display: grid; }
+}
+
 @media (max-width: 980px) {
     .company-service-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -17,6 +17,9 @@ const backupsDirPath = path.join(storageRootPath, "backups");
 const logsDirPath = path.join(storageRootPath, "logs");
 const logFilePath = path.join(logsDirPath, "server.log");
 const uploadsDirPath = path.join(storageRootPath, "uploads");
+const defaultRestaurantId = "hungerstation-default";
+const defaultRestaurantSlug = "main";
+const defaultPlatformServiceFeeNaira = 100;
 
 fs.mkdirSync(storageRootPath, { recursive: true });
 
@@ -30,6 +33,9 @@ const paystackBearer = process.env.PAYSTACK_BEARER || "";
 const adminUsername = process.env.ADMIN_USERNAME || "";
 const adminPassword = process.env.ADMIN_PASSWORD || "";
 const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH || "";
+const superAdminUsername = process.env.SUPER_ADMIN_USERNAME || "";
+const superAdminPassword = process.env.SUPER_ADMIN_PASSWORD || "";
+const superAdminPasswordHash = process.env.SUPER_ADMIN_PASSWORD_HASH || "";
 const defaultStaffUsername = process.env.STAFF_USERNAME || "";
 const defaultStaffDisplayName = process.env.STAFF_DISPLAY_NAME || "";
 const defaultStaffPassword = process.env.STAFF_PASSWORD || "";
@@ -38,12 +44,13 @@ const backupHour = Number(process.env.BACKUP_HOUR || 3);
 const backupRetentionDays = Number(process.env.BACKUP_RETENTION_DAYS || 14);
 const adminSessions = new Map();
 const staffSessions = new Map();
+const superAdminSessions = new Map();
 const requestRateLimits = new Map();
 const sessionTtlMs = 1000 * 60 * 60 * 8;
 const jsonBodyLimitBytes = 1024 * 1024;
 const staticFileCache = new Map();
-let ordersCache = null;
-let siteDataCache = null;
+const ordersCache = new Map();
+const siteDataCache = new Map();
 const db = new sqlite3.Database(databaseFilePath);
 const databaseReady = initializeDatabase();
 let backupTimerId = null;
@@ -66,6 +73,7 @@ const mimeTypes = {
 const server = http.createServer(async (req, res) => {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     const clientIp = getClientIp(req);
+    const requestRestaurantId = getRequestRestaurantId(requestUrl, req);
 
     try {
         await databaseReady;
@@ -118,12 +126,54 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/site-data") {
-        return sendJson(res, 200, await readSiteData());
+        return sendJson(res, 200, await readSiteData(requestRestaurantId));
+    }
+
+    if (req.method === "GET" && requestUrl.pathname === "/api/restaurants") {
+        return sendJson(res, 200, {
+            ok: true,
+            currentRestaurantId: requestRestaurantId,
+            restaurants: await readPublicRestaurants(),
+            platformSettings: await readPlatformSettings()
+        });
+    }
+
+    if (req.method === "GET" && requestUrl.pathname === "/api/super-admin/session") {
+        return sendJson(res, 200, {
+            ok: true,
+            isAuthenticated: isSuperAdminAuthenticated(req),
+            hasCredentials: hasConfiguredSuperAdminCredentials()
+        });
+    }
+
+    if (req.method === "GET" && requestUrl.pathname === "/api/super-admin/bootstrap") {
+        if (!isSuperAdminAuthenticated(req)) {
+            return sendJson(res, 401, { ok: false, message: "Unauthorized. Please log in as Super Admin." });
+        }
+
+        const restaurants = await readRestaurants();
+        const orders = await readAllPlatformOrders();
+        const platformSettings = await readPlatformSettings();
+        const paidOrders = orders.filter((order) => String(order.paymentStatus || "").toLowerCase() === "paid");
+
+        return sendJson(res, 200, {
+            ok: true,
+            restaurants,
+            platformSettings,
+            statistics: {
+                totalRestaurants: restaurants.length,
+                activeRestaurants: restaurants.filter((restaurant) => restaurant.status === "active" && !restaurant.suspended).length,
+                pendingRestaurants: restaurants.filter((restaurant) => restaurant.status === "pending").length,
+                totalOrders: orders.length,
+                platformRevenue: paidOrders.reduce((total, order) => total + Number(order.serviceFee || 0), 0)
+            },
+            recentOrders: orders.slice(0, 20)
+        });
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/trending-items") {
-        const siteData = await readSiteData();
-        const trendingItems = getTrendingItems(siteData.menuItems, await readOrders());
+        const siteData = await readSiteData(requestRestaurantId);
+        const trendingItems = getTrendingItems(siteData.menuItems, await readOrders(requestRestaurantId));
 
         return sendJson(res, 200, {
             ok: true,
@@ -132,16 +182,16 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/admin/session") {
-        const isAuthenticated = isAdminAuthenticated(req);
+        const isAuthenticated = isAdminAuthenticated(req, requestRestaurantId);
         return sendJson(res, 200, {
             ok: true,
             isAuthenticated,
-            hasAdminCredentials: hasConfiguredAdminCredentials()
+            hasAdminCredentials: await hasRestaurantAdminCredentials(requestRestaurantId)
         });
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/staff/session") {
-        const staffUser = await getAuthenticatedStaff(req);
+        const staffUser = await getAuthenticatedStaff(req, requestRestaurantId);
         return sendJson(res, 200, {
             ok: true,
             isAuthenticated: Boolean(staffUser),
@@ -150,7 +200,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/orders") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized admin orders access attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -158,7 +208,7 @@ const server = http.createServer(async (req, res) => {
             });
         }
 
-        const orders = await readOrders();
+        const orders = await readOrders(requestRestaurantId);
         return sendJson(res, 200, {
             ok: true,
             orders
@@ -166,7 +216,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/staff/bootstrap") {
-        const staffUser = await getAuthenticatedStaff(req);
+        const staffUser = await getAuthenticatedStaff(req, requestRestaurantId);
 
         if (!staffUser) {
             logServerEvent("warn", "Unauthorized staff bootstrap access attempt.", { ip: clientIp });
@@ -180,13 +230,16 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, {
             ok: true,
             user: sanitizeUser(staffUser),
-            siteData: await readSiteData(),
-            orders: filterOrdersForStaffActivity(await readOrders(), await readOperationsState())
+            siteData: await readSiteData(requestRestaurantId),
+            orders: filterOrdersForStaffActivity(
+                await readOrders(requestRestaurantId),
+                await readOperationsState(requestRestaurantId)
+            )
         });
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/admin/users") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized admin user list access attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -196,12 +249,12 @@ const server = http.createServer(async (req, res) => {
 
         return sendJson(res, 200, {
             ok: true,
-            users: await readStaffUsers()
+            users: await readStaffUsers(requestRestaurantId)
         });
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/admin/backups") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized admin backup list access attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -216,7 +269,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/admin/logs") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized admin logs access attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -231,7 +284,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/admin/closing-history") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized admin closing history access attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -241,12 +294,12 @@ const server = http.createServer(async (req, res) => {
 
         return sendJson(res, 200, {
             ok: true,
-            history: await readClosingHistory()
+            history: await readClosingHistory(20, requestRestaurantId)
         });
     }
 
     if (req.method === "POST" && requestUrl.pathname === "/api/orders/status") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized admin order status update attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -266,8 +319,9 @@ const server = http.createServer(async (req, res) => {
         }
 
         const updatedOrder = await updateOrderStatus(reference, status, {
-            attendedBy: "Admin"
-        });
+            attendedBy: "Admin",
+            restaurantId: requestRestaurantId
+        }, requestRestaurantId);
 
         if (!updatedOrder) {
             return sendJson(res, 404, {
@@ -284,7 +338,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/admin/sales-report") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized admin sales report access attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -293,7 +347,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         const range = String(requestUrl.searchParams.get("range") || "all").trim().toLowerCase();
-        const report = buildSalesReport(await readOrders(), range);
+        const report = buildSalesReport(await readOrders(requestRestaurantId), range);
         return sendJson(res, 200, {
             ok: true,
             report
@@ -301,7 +355,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && requestUrl.pathname === "/api/staff/orders/status") {
-        const staffUser = await getAuthenticatedStaff(req);
+        const staffUser = await getAuthenticatedStaff(req, requestRestaurantId);
 
         if (!staffUser) {
             logServerEvent("warn", "Unauthorized staff order status update attempt.", { ip: clientIp });
@@ -323,8 +377,9 @@ const server = http.createServer(async (req, res) => {
         }
 
         const updatedOrder = await updateOrderStatus(reference, status, {
-            attendedBy: staffUser.displayName || staffUser.username
-        });
+            attendedBy: staffUser.displayName || staffUser.username,
+            restaurantId: requestRestaurantId
+        }, requestRestaurantId);
 
         if (!updatedOrder) {
             return sendJson(res, 404, {
@@ -347,11 +402,11 @@ const server = http.createServer(async (req, res) => {
         });
     }
 
-    if (req.method === "POST" && requestUrl.pathname === "/api/admin/login") {
-        if (!hasConfiguredAdminCredentials()) {
+    if (req.method === "POST" && requestUrl.pathname === "/api/super-admin/login") {
+        if (!hasConfiguredSuperAdminCredentials()) {
             return sendJson(res, 500, {
                 ok: false,
-                message: "Admin credentials are not set in .env."
+                message: "Super Admin credentials are not set. Add SUPER_ADMIN_USERNAME and SUPER_ADMIN_PASSWORD_HASH in Render."
             });
         }
 
@@ -359,7 +414,108 @@ const server = http.createServer(async (req, res) => {
         const username = String(body.username || "").trim();
         const password = String(body.password || "");
 
-        if (username !== adminUsername || !verifyConfiguredPassword(password, adminPassword, adminPasswordHash)) {
+        if (username !== superAdminUsername || !verifyConfiguredPassword(password, superAdminPassword, superAdminPasswordHash)) {
+            logServerEvent("warn", "Super Admin login failed.", { ip: clientIp, username });
+            return sendJson(res, 401, { ok: false, message: "Invalid Super Admin login details." });
+        }
+
+        const sessionToken = crypto.randomBytes(24).toString("hex");
+        superAdminSessions.set(sessionToken, {
+            username,
+            createdAt: Date.now(),
+            expiresAt: Date.now() + sessionTtlMs
+        });
+
+        return sendJson(res, 200, { ok: true, message: "Super Admin login successful." }, [
+            createCookie("super_admin_session", sessionToken, {
+                httpOnly: true,
+                sameSite: "Strict",
+                path: "/",
+                maxAge: 60 * 60 * 8,
+                secure: isSecureRequest(req)
+            })
+        ]);
+    }
+
+    if (req.method === "POST" && requestUrl.pathname === "/api/super-admin/logout") {
+        const cookies = parseCookies(req.headers.cookie || "");
+        if (cookies.super_admin_session) {
+            superAdminSessions.delete(cookies.super_admin_session);
+        }
+
+        return sendJson(res, 200, { ok: true }, [
+            createCookie("super_admin_session", "", {
+                httpOnly: true,
+                sameSite: "Strict",
+                path: "/",
+                maxAge: 0,
+                secure: isSecureRequest(req)
+            })
+        ]);
+    }
+
+    if (req.method === "POST" && requestUrl.pathname === "/api/super-admin/restaurants") {
+        if (!isSuperAdminAuthenticated(req)) {
+            return sendJson(res, 401, { ok: false, message: "Unauthorized. Please log in as Super Admin." });
+        }
+
+        const body = await readJsonBody(req);
+        const restaurant = await createPlatformRestaurant(body);
+        return sendJson(res, 201, { ok: true, message: "Restaurant created. Approve it when onboarding is complete.", restaurant });
+    }
+
+    if (req.method === "POST" && requestUrl.pathname === "/api/super-admin/restaurants/status") {
+        if (!isSuperAdminAuthenticated(req)) {
+            return sendJson(res, 401, { ok: false, message: "Unauthorized. Please log in as Super Admin." });
+        }
+
+        const body = await readJsonBody(req);
+        const restaurant = await updatePlatformRestaurantStatus(body.restaurantId, body.status);
+
+        if (!restaurant) {
+            return sendJson(res, 404, { ok: false, message: "Restaurant not found." });
+        }
+
+        return sendJson(res, 200, { ok: true, restaurant });
+    }
+
+    if (req.method === "POST" && requestUrl.pathname === "/api/super-admin/restaurants/delete") {
+        if (!isSuperAdminAuthenticated(req)) {
+            return sendJson(res, 401, { ok: false, message: "Unauthorized. Please log in as Super Admin." });
+        }
+
+        const body = await readJsonBody(req);
+        await deletePlatformRestaurant(body.restaurantId);
+        return sendJson(res, 200, { ok: true, message: "Restaurant deleted." });
+    }
+
+    if (req.method === "POST" && requestUrl.pathname === "/api/super-admin/settings") {
+        if (!isSuperAdminAuthenticated(req)) {
+            return sendJson(res, 401, { ok: false, message: "Unauthorized. Please log in as Super Admin." });
+        }
+
+        const body = await readJsonBody(req);
+        const serviceFee = Number(body.serviceFeeNaira);
+        if (!Number.isFinite(serviceFee) || serviceFee < 0 || serviceFee > 10000) {
+            return sendJson(res, 400, { ok: false, message: "Enter a valid platform service fee." });
+        }
+
+        await savePlatformSetting("service_fee_naira", String(Math.round(serviceFee)));
+        return sendJson(res, 200, { ok: true, message: "Platform service fee updated." });
+    }
+
+    if (req.method === "POST" && requestUrl.pathname === "/api/admin/login") {
+        const body = await readJsonBody(req);
+        const username = String(body.username || "").trim();
+        const password = String(body.password || "");
+        const loginRestaurantId = normalizeRestaurantId(body.restaurantId || requestRestaurantId);
+        const restaurantAdmin = await findRestaurantAdminUser(username, loginRestaurantId);
+        const usesLegacyDefaultAdmin = loginRestaurantId === defaultRestaurantId &&
+            username === adminUsername &&
+            hasConfiguredAdminCredentials() &&
+            verifyConfiguredPassword(password, adminPassword, adminPasswordHash);
+
+        if ((!restaurantAdmin || restaurantAdmin.blocked || !verifyPasswordHash(password, restaurantAdmin.passwordHash)) && !usesLegacyDefaultAdmin) {
             logServerEvent("warn", "Admin login failed.", { ip: clientIp, username });
             return sendJson(res, 401, {
                 ok: false,
@@ -369,6 +525,8 @@ const server = http.createServer(async (req, res) => {
 
         const sessionToken = crypto.randomBytes(24).toString("hex");
         adminSessions.set(sessionToken, {
+            restaurantId: loginRestaurantId,
+            username,
             createdAt: Date.now(),
             expiresAt: Date.now() + sessionTtlMs
         });
@@ -392,7 +550,8 @@ const server = http.createServer(async (req, res) => {
         const body = await readJsonBody(req);
         const username = normalizeUsername(body.username || "");
         const password = String(body.password || "");
-        const user = await findStaffUser(username);
+        const loginRestaurantId = normalizeRestaurantId(body.restaurantId || requestRestaurantId);
+        const user = await findStaffUser(username, loginRestaurantId);
 
         if (!user || !verifyPasswordHash(password, user.passwordHash)) {
             logServerEvent("warn", "Staff login failed.", { ip: clientIp, username });
@@ -414,6 +573,7 @@ const server = http.createServer(async (req, res) => {
         staffSessions.set(sessionToken, {
             username: user.username,
             displayName: user.displayName,
+            restaurantId: loginRestaurantId,
             createdAt: Date.now(),
             expiresAt: Date.now() + sessionTtlMs
         });
@@ -523,7 +683,8 @@ const server = http.createServer(async (req, res) => {
             }
 
             if (orderPayload) {
-                const stockErrors = await validateOrderStock(orderPayload.items || []);
+                const orderRestaurantId = normalizeRestaurantId(orderPayload.restaurantId || requestRestaurantId);
+                const stockErrors = await validateOrderStock(orderPayload.items || [], orderRestaurantId);
 
                 if (stockErrors.length) {
                     logServerEvent("warn", "Order blocked due to stock validation failure.", {
@@ -539,6 +700,7 @@ const server = http.createServer(async (req, res) => {
 
                 await saveOrder({
                     ...orderPayload,
+                    restaurantId: orderRestaurantId,
                     id: data.id || Date.now(),
                     reference: data.reference || reference,
                     date: new Date().toLocaleString(),
@@ -546,7 +708,7 @@ const server = http.createServer(async (req, res) => {
                     paymentChannel: data.channel || "",
                     paidAt: data.paid_at || "",
                     amountPaid: paidAmount
-                });
+                }, orderRestaurantId);
                 logServerEvent("info", "Payment verified and order saved.", {
                     ip: clientIp,
                     reference: data.reference || reference,
@@ -573,7 +735,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && requestUrl.pathname === "/api/admin/backup") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized admin backup attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -605,7 +767,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && requestUrl.pathname === "/api/site-data") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized site-data save attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -615,7 +777,7 @@ const server = http.createServer(async (req, res) => {
 
         const body = await readJsonBody(req);
         const normalizedData = normalizeSiteData(body);
-        await saveSiteData(normalizedData);
+        await saveSiteData(normalizedData, requestRestaurantId);
         logServerEvent("info", "Site data updated.", { ip: clientIp });
         return sendJson(res, 200, {
             ok: true,
@@ -625,7 +787,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && requestUrl.pathname === "/api/admin/users") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized admin user save attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -652,7 +814,7 @@ const server = http.createServer(async (req, res) => {
             });
         }
 
-        const existingUser = await findStaffUser(username);
+        const existingUser = await findStaffUser(username, requestRestaurantId);
 
         if (!existingUser && !password) {
             return sendJson(res, 400, {
@@ -666,7 +828,7 @@ const server = http.createServer(async (req, res) => {
             displayName,
             passwordHash: password ? createPasswordHash(password) : existingUser.passwordHash,
             blocked: existingUser ? existingUser.blocked : false
-        });
+        }, requestRestaurantId);
 
         logServerEvent("info", existingUser ? "Staff user updated." : "Staff user created.", {
             ip: clientIp,
@@ -676,12 +838,12 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, {
             ok: true,
             message: existingUser ? "User updated successfully." : "User created successfully.",
-            users: await readStaffUsers()
+            users: await readStaffUsers(requestRestaurantId)
         });
     }
 
     if (req.method === "POST" && requestUrl.pathname === "/api/admin/users/delete") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized admin user delete attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -699,7 +861,7 @@ const server = http.createServer(async (req, res) => {
             });
         }
 
-        await deleteStaffUser(username);
+        await deleteStaffUser(username, requestRestaurantId);
         clearStaffSessionsForUsername(username);
         logServerEvent("info", "Staff user deleted.", {
             ip: clientIp,
@@ -709,12 +871,12 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, {
             ok: true,
             message: "User deleted successfully.",
-            users: await readStaffUsers()
+            users: await readStaffUsers(requestRestaurantId)
         });
     }
 
     if (req.method === "POST" && requestUrl.pathname === "/api/admin/users/block") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized admin user block toggle attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -733,7 +895,7 @@ const server = http.createServer(async (req, res) => {
             });
         }
 
-        const updatedUser = await setStaffUserBlocked(username, blocked);
+        const updatedUser = await setStaffUserBlocked(username, blocked, requestRestaurantId);
 
         if (!updatedUser) {
             return sendJson(res, 404, {
@@ -754,12 +916,12 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, {
             ok: true,
             message: blocked ? "User blocked successfully." : "User unblocked successfully.",
-            users: await readStaffUsers()
+            users: await readStaffUsers(requestRestaurantId)
         });
     }
 
     if (req.method === "POST" && requestUrl.pathname === "/api/staff/menu-stock") {
-        const staffUser = await getAuthenticatedStaff(req);
+        const staffUser = await getAuthenticatedStaff(req, requestRestaurantId);
 
         if (!staffUser) {
             logServerEvent("warn", "Unauthorized staff stock update attempt.", { ip: clientIp });
@@ -800,7 +962,7 @@ const server = http.createServer(async (req, res) => {
             });
         }
 
-        const updatedItem = await updateMenuItemStock(itemId, availability, stockQuantity);
+        const updatedItem = await updateMenuItemStock(itemId, availability, stockQuantity, requestRestaurantId);
 
         if (!updatedItem) {
             return sendJson(res, 404, {
@@ -823,7 +985,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && requestUrl.pathname === "/api/admin/close-day") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized admin closing attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -831,12 +993,12 @@ const server = http.createServer(async (req, res) => {
             });
         }
 
-        const orders = await readOrders();
+        const orders = await readOrders(requestRestaurantId);
         const report = buildSalesReport(orders, "today");
         const operationsState = await saveOperationsState({
             lastClosingAt: new Date().toISOString()
-        });
-        await saveClosingHistoryEntry(report, operationsState.lastClosingAt);
+        }, requestRestaurantId);
+        await saveClosingHistoryEntry(report, operationsState.lastClosingAt, requestRestaurantId);
 
         logServerEvent("info", "Daily closing completed.", {
             ip: clientIp,
@@ -852,7 +1014,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && requestUrl.pathname === "/api/upload-image") {
-        if (!isAdminAuthenticated(req)) {
+        if (!isAdminAuthenticated(req, requestRestaurantId)) {
             logServerEvent("warn", "Unauthorized image upload attempt.", { ip: clientIp });
             return sendJson(res, 401, {
                 ok: false,
@@ -1013,7 +1175,17 @@ async function initializeDatabase() {
         CREATE TABLE IF NOT EXISTS app_state (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            restaurant_id TEXT NOT NULL DEFAULT 'hungerstation-default'
+        )
+    `);
+    await dbRun(`
+        CREATE TABLE IF NOT EXISTS restaurant_state (
+            restaurant_id TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (restaurant_id, key)
         )
     `);
     await dbRun(`
@@ -1022,7 +1194,8 @@ async function initializeDatabase() {
             payload TEXT NOT NULL,
             paid_at TEXT,
             created_at TEXT NOT NULL,
-            status TEXT NOT NULL
+            status TEXT NOT NULL,
+            restaurant_id TEXT NOT NULL DEFAULT 'hungerstation-default'
         )
     `);
     await dbRun(`
@@ -1032,19 +1205,82 @@ async function initializeDatabase() {
             password_hash TEXT NOT NULL,
             blocked INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            restaurant_id TEXT NOT NULL DEFAULT 'hungerstation-default'
         )
     `);
     await dbRun(`
         CREATE TABLE IF NOT EXISTS closing_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             payload TEXT NOT NULL,
-            closed_at TEXT NOT NULL
+            closed_at TEXT NOT NULL,
+            restaurant_id TEXT NOT NULL DEFAULT 'hungerstation-default'
+        )
+    `);
+    await dbRun(`
+        CREATE TABLE IF NOT EXISTS restaurants (
+            id TEXT PRIMARY KEY,
+            slug TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
+            logo_path TEXT NOT NULL DEFAULT '',
+            phone TEXT NOT NULL DEFAULT '',
+            email TEXT NOT NULL DEFAULT '',
+            address TEXT NOT NULL DEFAULT '',
+            opening_time TEXT NOT NULL DEFAULT '',
+            closing_time TEXT NOT NULL DEFAULT '',
+            delivery_available INTEGER NOT NULL DEFAULT 1,
+            rating REAL NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'pending',
+            approved INTEGER NOT NULL DEFAULT 0,
+            suspended INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    `);
+    await dbRun(`
+        CREATE TABLE IF NOT EXISTS restaurant_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            restaurant_id TEXT NOT NULL,
+            username TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'admin',
+            blocked INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(restaurant_id, username)
+        )
+    `);
+    await dbRun(`
+        CREATE TABLE IF NOT EXISTS restaurant_payment_settings (
+            restaurant_id TEXT PRIMARY KEY,
+            paystack_split_code TEXT NOT NULL DEFAULT '',
+            paystack_subaccount_code TEXT NOT NULL DEFAULT '',
+            transaction_charge_kobo INTEGER NOT NULL DEFAULT 0,
+            bearer TEXT NOT NULL DEFAULT '',
+            service_fee_naira INTEGER NOT NULL DEFAULT 100,
+            currency TEXT NOT NULL DEFAULT 'NGN',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    `);
+    await dbRun(`
+        CREATE TABLE IF NOT EXISTS platform_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at TEXT NOT NULL
         )
     `);
     await ensureTableColumn("staff_users", "blocked", "INTEGER NOT NULL DEFAULT 0");
+    await ensureTableColumn("app_state", "restaurant_id", "TEXT NOT NULL DEFAULT 'hungerstation-default'");
+    await ensureTableColumn("orders", "restaurant_id", "TEXT NOT NULL DEFAULT 'hungerstation-default'");
+    await ensureTableColumn("staff_users", "restaurant_id", "TEXT NOT NULL DEFAULT 'hungerstation-default'");
+    await ensureTableColumn("closing_history", "restaurant_id", "TEXT NOT NULL DEFAULT 'hungerstation-default'");
     await ensureDefaultStaffUserFromEnv();
     await migrateJsonDataIfNeeded();
+    await ensureDefaultRestaurantSeed();
+    await ensureDefaultRestaurantAdminFromEnv();
+    await ensurePlatformDefaults();
     const integrityResult = await checkDatabaseIntegrity();
 
     if (!integrityResult.ok) {
@@ -1234,20 +1470,32 @@ function scheduleAutomaticBackups() {
 }
 
 async function migrateJsonDataIfNeeded() {
-    const siteStateRow = await dbGet("SELECT value FROM app_state WHERE key = ?", ["site-data"]);
+    const restaurantSiteRow = await dbGet(
+        "SELECT value FROM restaurant_state WHERE key = ? AND restaurant_id = ?",
+        ["site-data", defaultRestaurantId]
+    );
+    const legacySiteRow = await dbGet("SELECT value FROM app_state WHERE key = ?", ["site-data"]);
 
-    if (!siteStateRow) {
-        const importedSiteData = readJsonSiteDataFallback();
-        await writeSiteDataToDatabase(importedSiteData);
+    if (!restaurantSiteRow) {
+        const importedSiteData = legacySiteRow
+            ? safeParseJson(legacySiteRow.value) || readJsonSiteDataFallback()
+            : readJsonSiteDataFallback();
+        await writeSiteDataToDatabase(importedSiteData, defaultRestaurantId);
     }
 
-    const orderCountRow = await dbGet("SELECT COUNT(*) AS count FROM orders");
+    const orderCountRow = await dbGet(
+        "SELECT COUNT(*) AS count FROM orders WHERE restaurant_id = ?",
+        [defaultRestaurantId]
+    );
 
     if (!orderCountRow || Number(orderCountRow.count || 0) === 0) {
         const importedOrders = readJsonOrdersFallback();
 
         for (const order of importedOrders) {
-            await insertOrderIntoDatabase(order);
+            await insertOrderIntoDatabase({
+                ...order,
+                restaurantId: defaultRestaurantId
+            }, defaultRestaurantId);
         }
     }
 }
@@ -1568,9 +1816,16 @@ function isSecureRequest(req) {
     return forwardedProto === "https" || Boolean(req.socket && req.socket.encrypted);
 }
 
-function isAdminAuthenticated(req) {
+function isAdminAuthenticated(req, restaurantId = defaultRestaurantId) {
     const cookies = parseCookies(req.headers.cookie || "");
-    return Boolean(cookies.admin_session && getValidSession(adminSessions, cookies.admin_session));
+    const session = cookies.admin_session ? getValidSession(adminSessions, cookies.admin_session) : null;
+    return Boolean(session && normalizeRestaurantId(session.restaurantId || defaultRestaurantId) === normalizeRestaurantId(restaurantId));
+}
+
+function isSuperAdminAuthenticated(req) {
+    const cookies = parseCookies(req.headers.cookie || "");
+    const session = cookies.super_admin_session ? getValidSession(superAdminSessions, cookies.super_admin_session) : null;
+    return Boolean(session && session.username === superAdminUsername);
 }
 
 function getAuthenticatedStaffSession(req) {
@@ -1579,14 +1834,19 @@ function getAuthenticatedStaffSession(req) {
     return session ? session : null;
 }
 
-async function getAuthenticatedStaff(req) {
+async function getAuthenticatedStaff(req, restaurantId = defaultRestaurantId) {
     const session = getAuthenticatedStaffSession(req);
 
     if (!session || !session.username) {
         return null;
     }
 
-    const user = await findStaffUser(session.username);
+    const sessionRestaurantId = normalizeRestaurantId(session.restaurantId || defaultRestaurantId);
+    if (sessionRestaurantId !== normalizeRestaurantId(restaurantId)) {
+        return null;
+    }
+
+    const user = await findStaffUser(session.username, sessionRestaurantId);
 
     if (!user || user.blocked) {
         clearStaffSessionsForUsername(session.username);
@@ -1614,6 +1874,7 @@ function getValidSession(store, token) {
 function cleanupExpiredSessions() {
     cleanupSessionStore(adminSessions);
     cleanupSessionStore(staffSessions);
+    cleanupSessionStore(superAdminSessions);
 }
 
 function cleanupSessionStore(store) {
@@ -1635,8 +1896,372 @@ async function ensureTableColumn(tableName, columnName, columnDefinition) {
     }
 }
 
+function normalizeRestaurantId(value) {
+    const normalizedValue = String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+    return normalizedValue || defaultRestaurantId;
+}
+
+function normalizeRestaurantSlug(value) {
+    const normalizedValue = String(value || "")
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+    return normalizedValue || defaultRestaurantSlug;
+}
+
+function getRequestRestaurantId(requestUrl, req, fallback = defaultRestaurantId) {
+    const queryRestaurantId = String(requestUrl.searchParams.get("restaurantId") || requestUrl.searchParams.get("restaurant") || "").trim();
+    const headerRestaurantId = String(req.headers["x-restaurant-id"] || "").trim();
+
+    return normalizeRestaurantId(queryRestaurantId || headerRestaurantId || fallback);
+}
+
+function getRestaurantStateKey(key, restaurantId = defaultRestaurantId) {
+    return `${normalizeRestaurantId(restaurantId)}:${String(key || "").trim()}`;
+}
+
+async function readPlatformSettings() {
+    const rows = await dbAll("SELECT key, value FROM platform_settings");
+
+    return rows.reduce((settings, row) => {
+        settings[row.key] = row.value;
+        return settings;
+    }, {});
+}
+
+async function ensurePlatformDefaults() {
+    const now = new Date().toISOString();
+    const defaults = [
+        ["service_fee_naira", String(defaultPlatformServiceFeeNaira)],
+        ["platform_name", "HungerStation"],
+        ["platform_status", "active"]
+    ];
+
+    for (const [key, value] of defaults) {
+        await dbRun(
+            `INSERT INTO platform_settings (key, value, updated_at)
+             VALUES (?, ?, ?)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+            [key, value, now]
+        );
+    }
+}
+
+async function ensureDefaultRestaurantSeed() {
+    const siteData = await readSiteData(defaultRestaurantId);
+    const site = siteData.site || defaultSiteData().site;
+    const now = new Date().toISOString();
+
+    await dbRun(
+        `INSERT INTO restaurants (
+            id, slug, name, logo_path, phone, email, address, opening_time, closing_time,
+            delivery_available, rating, status, approved, suspended, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+            slug = excluded.slug,
+            name = excluded.name,
+            logo_path = excluded.logo_path,
+            phone = excluded.phone,
+            email = excluded.email,
+            address = excluded.address,
+            opening_time = excluded.opening_time,
+            closing_time = excluded.closing_time,
+            delivery_available = excluded.delivery_available,
+            rating = excluded.rating,
+            status = excluded.status,
+            approved = excluded.approved,
+            suspended = excluded.suspended,
+            updated_at = excluded.updated_at`,
+        [
+            defaultRestaurantId,
+            normalizeRestaurantSlug(site.restaurantName || defaultRestaurantSlug),
+            String(site.restaurantName || defaultSiteData().site.restaurantName).trim(),
+            normalizeAssetPath(site.logoPath || ""),
+            String(site.phone || "").trim(),
+            String(site.email || "").trim(),
+            String(site.location || "").trim(),
+            normalizeTimeValue(site.openingTime || ""),
+            normalizeTimeValue(site.closingTime || ""),
+            1,
+            0,
+            "active",
+            1,
+            0,
+            now,
+            now
+        ]
+    );
+
+    await dbRun(
+        `INSERT INTO restaurant_payment_settings (
+            restaurant_id, paystack_split_code, paystack_subaccount_code, transaction_charge_kobo,
+            bearer, service_fee_naira, currency, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(restaurant_id) DO UPDATE SET
+            paystack_split_code = excluded.paystack_split_code,
+            paystack_subaccount_code = excluded.paystack_subaccount_code,
+            transaction_charge_kobo = excluded.transaction_charge_kobo,
+            bearer = excluded.bearer,
+            service_fee_naira = excluded.service_fee_naira,
+            currency = excluded.currency,
+            updated_at = excluded.updated_at`,
+        [
+            defaultRestaurantId,
+            paystackSplitCode || "",
+            paystackSubaccountCode || "",
+            Number(paystackTransactionChargeKobo || 0),
+            ["account", "subaccount"].includes(paystackBearer) ? paystackBearer : "",
+            defaultPlatformServiceFeeNaira,
+            "NGN",
+            now,
+            now
+        ]
+    );
+}
+
+async function readRestaurants() {
+    const rows = await dbAll(`
+        SELECT id, slug, name, logo_path, phone, email, address, opening_time, closing_time,
+               delivery_available, rating, status, approved, suspended, created_at, updated_at
+        FROM restaurants
+        ORDER BY datetime(created_at) DESC, name ASC
+    `);
+
+    return rows.map((row) => ({
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        logoPath: row.logo_path || "",
+        phone: row.phone || "",
+        email: row.email || "",
+        address: row.address || "",
+        openingTime: row.opening_time || "",
+        closingTime: row.closing_time || "",
+        deliveryAvailable: Boolean(row.delivery_available),
+        rating: Number(row.rating || 0),
+        status: row.status || "pending",
+        approved: Boolean(row.approved),
+        suspended: Boolean(row.suspended),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+    }));
+}
+
+async function readPublicRestaurants() {
+    const restaurants = await readRestaurants();
+    return restaurants.filter((restaurant) => restaurant.approved && !restaurant.suspended && restaurant.status === "active");
+}
+
+async function readAllPlatformOrders() {
+    const rows = await dbAll("SELECT payload FROM orders ORDER BY datetime(created_at) DESC");
+    return rows.map((row) => safeParseJson(row.payload)).filter(Boolean);
+}
+
+function hasConfiguredSuperAdminCredentials() {
+    return Boolean(superAdminUsername && (superAdminPassword || superAdminPasswordHash));
+}
+
+async function ensureDefaultRestaurantAdminFromEnv() {
+    const username = normalizeUsername(adminUsername);
+    const passwordHash = String(adminPasswordHash || "").trim() ||
+        (adminPassword ? createPasswordHash(adminPassword) : "");
+
+    if (!username || !passwordHash) {
+        return;
+    }
+
+    await saveRestaurantAdminUser({
+        restaurantId: defaultRestaurantId,
+        username,
+        displayName: username,
+        passwordHash,
+        blocked: false
+    });
+}
+
+async function findRestaurantAdminUser(username, restaurantId = defaultRestaurantId) {
+    const normalizedUsername = normalizeUsername(username);
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    const row = await dbGet(
+        `SELECT restaurant_id, username, display_name, password_hash, blocked
+         FROM restaurant_users
+         WHERE restaurant_id = ? AND username = ? AND role = 'admin'`,
+        [normalizedRestaurantId, normalizedUsername]
+    );
+
+    if (!row) {
+        return null;
+    }
+
+    return {
+        restaurantId: row.restaurant_id,
+        username: row.username,
+        displayName: row.display_name,
+        passwordHash: row.password_hash,
+        blocked: Boolean(row.blocked)
+    };
+}
+
+async function saveRestaurantAdminUser(user) {
+    const restaurantId = normalizeRestaurantId(user.restaurantId);
+    const username = normalizeUsername(user.username);
+    const displayName = String(user.displayName || username).trim();
+    const passwordHash = String(user.passwordHash || "").trim();
+
+    if (!username || !displayName || !passwordHash) {
+        throw new Error("Restaurant admin username, name, and password are required.");
+    }
+
+    const now = new Date().toISOString();
+    await dbRun(
+        `INSERT INTO restaurant_users (
+            restaurant_id, username, display_name, password_hash, role, blocked, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, 'admin', ?, ?, ?)
+        ON CONFLICT(restaurant_id, username) DO UPDATE SET
+            display_name = excluded.display_name,
+            password_hash = excluded.password_hash,
+            blocked = excluded.blocked,
+            updated_at = excluded.updated_at`,
+        [restaurantId, username, displayName, passwordHash, user.blocked ? 1 : 0, now, now]
+    );
+}
+
+async function createPlatformRestaurant(input) {
+    const name = String(input.name || "").trim();
+    const slug = normalizeRestaurantSlug(input.slug || name);
+    const adminUsernameValue = normalizeUsername(input.adminUsername);
+    const adminPasswordValue = String(input.adminPassword || "");
+
+    if (!name || !adminUsernameValue || adminPasswordValue.length < 8) {
+        throw new Error("Restaurant name, admin username, and an 8-character password are required.");
+    }
+
+    const existing = await dbGet("SELECT id FROM restaurants WHERE slug = ?", [slug]);
+    if (existing) {
+        throw new Error("This restaurant slug is already in use.");
+    }
+
+    const restaurantId = `restaurant-${slug}-${crypto.randomBytes(3).toString("hex")}`;
+    const now = new Date().toISOString();
+    const platformSettings = await readPlatformSettings();
+    const siteData = defaultSiteData();
+    siteData.site = {
+        ...siteData.site,
+        restaurantName: name,
+        phone: String(input.phone || "").trim(),
+        email: String(input.email || "").trim(),
+        location: String(input.address || "").trim(),
+        openingTime: normalizeTimeValue(input.openingTime || siteData.site.openingTime),
+        closingTime: normalizeTimeValue(input.closingTime || siteData.site.closingTime)
+    };
+
+    await dbRun(
+        `INSERT INTO restaurants (
+            id, slug, name, phone, email, address, opening_time, closing_time,
+            delivery_available, status, approved, suspended, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'pending', 0, 0, ?, ?)`,
+        [
+            restaurantId, slug, name, siteData.site.phone, siteData.site.email, siteData.site.location,
+            siteData.site.openingTime, siteData.site.closingTime, now, now
+        ]
+    );
+    await saveSiteData(siteData, restaurantId);
+    await saveRestaurantAdminUser({
+        restaurantId,
+        username: adminUsernameValue,
+        displayName: String(input.adminDisplayName || adminUsernameValue).trim(),
+        passwordHash: createPasswordHash(adminPasswordValue),
+        blocked: false
+    });
+    await dbRun(
+        `INSERT INTO restaurant_payment_settings (
+            restaurant_id, service_fee_naira, currency, created_at, updated_at
+        ) VALUES (?, ?, 'NGN', ?, ?)`,
+        [restaurantId, Number(platformSettings.service_fee_naira || defaultPlatformServiceFeeNaira), now, now]
+    );
+
+    return (await readRestaurants()).find((restaurant) => restaurant.id === restaurantId);
+}
+
+async function updatePlatformRestaurantStatus(restaurantId, requestedStatus) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    const status = String(requestedStatus || "").trim().toLowerCase();
+    const allowedStatuses = ["pending", "active", "suspended"];
+
+    if (!allowedStatuses.includes(status)) {
+        throw new Error("Invalid restaurant status.");
+    }
+
+    const existing = await dbGet("SELECT id FROM restaurants WHERE id = ?", [normalizedRestaurantId]);
+    if (!existing) {
+        return null;
+    }
+
+    const isActive = status === "active";
+    await dbRun(
+        `UPDATE restaurants
+         SET status = ?, approved = ?, suspended = ?, updated_at = ?
+         WHERE id = ?`,
+        [status, isActive ? 1 : 0, status === "suspended" ? 1 : 0, new Date().toISOString(), normalizedRestaurantId]
+    );
+
+    return (await readRestaurants()).find((restaurant) => restaurant.id === normalizedRestaurantId) || null;
+}
+
+async function deletePlatformRestaurant(restaurantId) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    if (normalizedRestaurantId === defaultRestaurantId) {
+        throw new Error("The default restaurant cannot be deleted during migration.");
+    }
+
+    const existing = await dbGet("SELECT id FROM restaurants WHERE id = ?", [normalizedRestaurantId]);
+    if (!existing) {
+        throw new Error("Restaurant not found.");
+    }
+
+    await dbRun("DELETE FROM restaurant_state WHERE restaurant_id = ?", [normalizedRestaurantId]);
+    await dbRun("DELETE FROM orders WHERE restaurant_id = ?", [normalizedRestaurantId]);
+    await dbRun("DELETE FROM staff_users WHERE restaurant_id = ?", [normalizedRestaurantId]);
+    await dbRun("DELETE FROM restaurant_users WHERE restaurant_id = ?", [normalizedRestaurantId]);
+    await dbRun("DELETE FROM restaurant_payment_settings WHERE restaurant_id = ?", [normalizedRestaurantId]);
+    await dbRun("DELETE FROM closing_history WHERE restaurant_id = ?", [normalizedRestaurantId]);
+    await dbRun("DELETE FROM restaurants WHERE id = ?", [normalizedRestaurantId]);
+    ordersCache.delete(normalizedRestaurantId);
+    siteDataCache.delete(normalizedRestaurantId);
+}
+
+async function savePlatformSetting(key, value) {
+    const normalizedKey = String(key || "").trim();
+    if (!normalizedKey) {
+        throw new Error("Platform setting key is required.");
+    }
+
+    await dbRun(
+        `INSERT INTO platform_settings (key, value, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+        [normalizedKey, String(value ?? ""), new Date().toISOString()]
+    );
+}
+
 function hasConfiguredAdminCredentials() {
     return Boolean(adminUsername && (adminPassword || adminPasswordHash));
+}
+
+async function hasRestaurantAdminCredentials(restaurantId = defaultRestaurantId) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    const user = await dbGet(
+        "SELECT id FROM restaurant_users WHERE restaurant_id = ? AND role = 'admin' LIMIT 1",
+        [normalizedRestaurantId]
+    );
+    return Boolean(user) || (normalizedRestaurantId === defaultRestaurantId && hasConfiguredAdminCredentials());
 }
 
 function hasConfiguredPaystackSplit() {
@@ -1732,33 +2357,44 @@ function ensureUploadsStore() {
     }
 }
 
-async function readOrders() {
+async function readOrders(restaurantId = defaultRestaurantId) {
     ensureOrdersStore();
 
-    if (ordersCache) {
-        return ordersCache;
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    if (ordersCache.has(normalizedRestaurantId)) {
+        return ordersCache.get(normalizedRestaurantId);
     }
 
-    const rows = await dbAll("SELECT payload FROM orders ORDER BY datetime(created_at) DESC");
-    ordersCache = rows
+    const rows = await dbAll(
+        "SELECT payload FROM orders WHERE restaurant_id = ? ORDER BY datetime(created_at) DESC",
+        [normalizedRestaurantId]
+    );
+    const orders = rows
         .map((row) => safeParseJson(row.payload))
         .filter(Boolean);
-    return ordersCache;
+    ordersCache.set(normalizedRestaurantId, orders);
+    return orders;
 }
 
-async function saveOrder(order) {
+async function saveOrder(order, restaurantId = defaultRestaurantId) {
     ensureOrdersStore();
-    const orders = await readOrders();
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId || order.restaurantId || defaultRestaurantId);
+    const orders = await readOrders(normalizedRestaurantId);
     const alreadyExists = orders.some((entry) => entry.reference === order.reference);
 
     if (alreadyExists) {
         return;
     }
 
-    await insertOrderIntoDatabase(order);
-    orders.unshift(order);
-    ordersCache = orders;
-    await reduceMenuStock(order.items || []);
+    const orderToSave = {
+        ...order,
+        restaurantId: normalizedRestaurantId
+    };
+
+    await insertOrderIntoDatabase(orderToSave, normalizedRestaurantId);
+    orders.unshift(orderToSave);
+    ordersCache.set(normalizedRestaurantId, orders);
+    await reduceMenuStock(order.items || [], normalizedRestaurantId);
 }
 
 function saveUploadedImage(fileName, dataUrl) {
@@ -1812,9 +2448,10 @@ function getImageExtension(fileName, mimeType) {
     throw new Error("Only JPG, PNG, GIF, or WEBP images are supported.");
 }
 
-async function updateOrderStatus(reference, status, extra = {}) {
+async function updateOrderStatus(reference, status, extra = {}, restaurantId = defaultRestaurantId) {
     ensureOrdersStore();
-    const orders = await readOrders();
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId || extra.restaurantId || defaultRestaurantId);
+    const orders = await readOrders(normalizedRestaurantId);
     const orderIndex = orders.findIndex((entry) => entry.reference === reference);
 
     if (orderIndex === -1) {
@@ -1828,12 +2465,13 @@ async function updateOrderStatus(reference, status, extra = {}) {
         statusUpdatedAt: new Date().toISOString()
     };
 
-    await writeOrders(orders);
+    await writeOrders(orders, orders[orderIndex].restaurantId || normalizedRestaurantId);
     return orders[orderIndex];
 }
 
-async function updateMenuItemStock(itemId, availability, stockQuantity) {
-    const siteData = await readSiteData();
+async function updateMenuItemStock(itemId, availability, stockQuantity, restaurantId = defaultRestaurantId) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    const siteData = await readSiteData(normalizedRestaurantId);
     const itemIndex = (siteData.menuItems || []).findIndex((item) => String(item.id || "") === String(itemId || ""));
 
     if (itemIndex === -1) {
@@ -1853,7 +2491,7 @@ async function updateMenuItemStock(itemId, availability, stockQuantity) {
     await saveSiteData({
         ...siteData,
         menuItems: nextItems
-    });
+    }, normalizedRestaurantId);
 
     return nextItems[itemIndex];
 }
@@ -1976,23 +2614,31 @@ function normalizePrinterNumber(value, fallbackValue, minValue, maxValue) {
     return Math.min(maxValue, Math.max(minValue, numericValue));
 }
 
-async function readSiteData() {
+async function readSiteData(restaurantId = defaultRestaurantId) {
     ensureSiteDataStore();
 
-    if (siteDataCache) {
-        return siteDataCache;
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    if (siteDataCache.has(normalizedRestaurantId)) {
+        return siteDataCache.get(normalizedRestaurantId);
     }
 
-    const row = await dbGet("SELECT value FROM app_state WHERE key = ?", ["site-data"]);
-    siteDataCache = row ? normalizeSiteData(safeParseJson(row.value) || {}) : defaultSiteData();
-    return siteDataCache;
+    const row = await dbGet(
+        "SELECT value FROM restaurant_state WHERE key = ? AND restaurant_id = ?",
+        ["site-data", normalizedRestaurantId]
+    );
+    const normalizedData = row ? normalizeSiteData(safeParseJson(row.value) || {}) : defaultSiteData();
+    normalizedData.restaurantId = normalizedRestaurantId;
+    siteDataCache.set(normalizedRestaurantId, normalizedData);
+    return normalizedData;
 }
 
-async function saveSiteData(siteData) {
+async function saveSiteData(siteData, restaurantId = defaultRestaurantId) {
     ensureSiteDataStore();
     const normalizedData = normalizeSiteData(siteData);
-    await writeSiteDataToDatabase(normalizedData);
-    siteDataCache = normalizedData;
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    await writeRestaurantStateValue(normalizedRestaurantId, "site-data", normalizedData);
+    normalizedData.restaurantId = normalizedRestaurantId;
+    siteDataCache.set(normalizedRestaurantId, normalizedData);
 }
 
 function normalizeUsername(value) {
@@ -2030,28 +2676,24 @@ function normalizeOperationsState(rawState) {
     };
 }
 
-async function readOperationsState() {
-    const row = await dbGet("SELECT value FROM app_state WHERE key = ?", ["operations-state"]);
+async function readOperationsState(restaurantId = defaultRestaurantId) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    const row = await dbGet(
+        "SELECT value FROM restaurant_state WHERE key = ? AND restaurant_id = ?",
+        ["operations-state", normalizedRestaurantId]
+    );
     return row ? normalizeOperationsState(safeParseJson(row.value) || {}) : defaultOperationsState();
 }
 
-async function saveOperationsState(state) {
+async function saveOperationsState(state, restaurantId = defaultRestaurantId) {
     const normalizedState = normalizeOperationsState(state);
-    await dbRun(
-        `INSERT INTO app_state (key, value, updated_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
-        [
-            "operations-state",
-            JSON.stringify(normalizedState),
-            new Date().toISOString()
-        ]
-    );
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    await writeRestaurantStateValue(normalizedRestaurantId, "operations-state", normalizedState);
     return normalizedState;
 }
 
 // Closing history keeps a printable audit trail of end-of-day summaries without touching order records.
-async function saveClosingHistoryEntry(report, closedAt) {
+async function saveClosingHistoryEntry(report, closedAt, restaurantId = defaultRestaurantId) {
     const totalItemsSold = (report.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
     const entry = {
         closedAt: String(closedAt || new Date().toISOString()),
@@ -2060,21 +2702,24 @@ async function saveClosingHistoryEntry(report, closedAt) {
         totalItemSales: Number(report.totalItemSales || 0),
         items: Array.isArray(report.items) ? report.items : []
     };
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
 
     await dbRun(
-        `INSERT INTO closing_history (payload, closed_at)
-         VALUES (?, ?)`,
-        [JSON.stringify(entry), entry.closedAt]
+        `INSERT INTO closing_history (payload, closed_at, restaurant_id)
+         VALUES (?, ?, ?)`,
+        [JSON.stringify(entry), entry.closedAt, normalizedRestaurantId]
     );
 }
 
-async function readClosingHistory(limit = 20) {
+async function readClosingHistory(limit = 20, restaurantId = defaultRestaurantId) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
     const rows = await dbAll(
         `SELECT payload, closed_at
          FROM closing_history
+         WHERE restaurant_id = ?
          ORDER BY datetime(closed_at) DESC
          LIMIT ?`,
-        [limit]
+        [normalizedRestaurantId, limit]
     );
 
     return rows
@@ -2126,12 +2771,14 @@ function filterOrdersForStaffActivity(orders, operationsState) {
     return orders.filter((order) => getOrderActivityTimestamp(order) > cutoffTime);
 }
 
-async function readStaffUsers() {
+async function readStaffUsers(restaurantId = defaultRestaurantId) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
     const rows = await dbAll(`
         SELECT username, display_name, blocked, created_at
         FROM staff_users
+        WHERE restaurant_id = ?
         ORDER BY datetime(created_at) ASC, username ASC
-    `);
+    `, [normalizedRestaurantId]);
 
     return rows.map((row) => ({
         username: row.username,
@@ -2141,8 +2788,9 @@ async function readStaffUsers() {
     }));
 }
 
-async function findStaffUser(username) {
+async function findStaffUser(username, restaurantId = defaultRestaurantId) {
     const normalizedUsername = normalizeUsername(username);
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
 
     if (!normalizedUsername) {
         return null;
@@ -2152,8 +2800,8 @@ async function findStaffUser(username) {
         SELECT username, display_name, password_hash, created_at, updated_at
              , blocked
         FROM staff_users
-        WHERE username = ?
-    `, [normalizedUsername]);
+        WHERE username = ? AND restaurant_id = ?
+    `, [normalizedUsername, normalizedRestaurantId]);
 
     if (!row) {
         return null;
@@ -2169,35 +2817,38 @@ async function findStaffUser(username) {
     };
 }
 
-async function saveStaffUser(user) {
+async function saveStaffUser(user, restaurantId = defaultRestaurantId) {
     const username = normalizeUsername(user.username);
     const displayName = String(user.displayName || "").trim();
     const passwordHash = String(user.passwordHash || "").trim();
     const now = new Date().toISOString();
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId || user.restaurantId || defaultRestaurantId);
 
     if (!username || !displayName || !passwordHash) {
         throw new Error("User details are incomplete.");
     }
 
     await dbRun(`
-        INSERT INTO staff_users (username, display_name, password_hash, blocked, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO staff_users (username, display_name, password_hash, blocked, created_at, updated_at, restaurant_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(username) DO UPDATE SET
             display_name = excluded.display_name,
             password_hash = excluded.password_hash,
             blocked = excluded.blocked,
-            updated_at = excluded.updated_at
-    `, [username, displayName, passwordHash, user.blocked ? 1 : 0, now, now]);
+            updated_at = excluded.updated_at,
+            restaurant_id = excluded.restaurant_id
+    `, [username, displayName, passwordHash, user.blocked ? 1 : 0, now, now, normalizedRestaurantId]);
 }
 
-async function deleteStaffUser(username) {
+async function deleteStaffUser(username, restaurantId = defaultRestaurantId) {
     const normalizedUsername = normalizeUsername(username);
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
 
     if (!normalizedUsername) {
         return;
     }
 
-    await dbRun("DELETE FROM staff_users WHERE username = ?", [normalizedUsername]);
+    await dbRun("DELETE FROM staff_users WHERE username = ? AND restaurant_id = ?", [normalizedUsername, normalizedRestaurantId]);
 }
 
 function clearStaffSessionsForUsername(username) {
@@ -2210,14 +2861,15 @@ function clearStaffSessionsForUsername(username) {
     });
 }
 
-async function setStaffUserBlocked(username, blocked) {
+async function setStaffUserBlocked(username, blocked, restaurantId = defaultRestaurantId) {
     const normalizedUsername = normalizeUsername(username);
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
 
     if (!normalizedUsername) {
         return null;
     }
 
-    const existingUser = await findStaffUser(normalizedUsername);
+    const existingUser = await findStaffUser(normalizedUsername, normalizedRestaurantId);
 
     if (!existingUser) {
         return null;
@@ -2226,20 +2878,24 @@ async function setStaffUserBlocked(username, blocked) {
     await saveStaffUser({
         ...existingUser,
         blocked
-    });
+    }, normalizedRestaurantId);
 
-    return findStaffUser(normalizedUsername);
+    return findStaffUser(normalizedUsername, normalizedRestaurantId);
 }
 
-async function writeOrders(orders) {
-    ordersCache = orders;
+async function writeOrders(orders, restaurantId = defaultRestaurantId) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    ordersCache.set(normalizedRestaurantId, orders);
     await dbRun("BEGIN IMMEDIATE TRANSACTION");
 
     try {
-        await dbRun("DELETE FROM orders");
+        await dbRun("DELETE FROM orders WHERE restaurant_id = ?", [normalizedRestaurantId]);
 
         for (const order of orders) {
-            await insertOrderIntoDatabase(order);
+            await insertOrderIntoDatabase({
+                ...order,
+                restaurantId: order.restaurantId || normalizedRestaurantId
+            }, normalizedRestaurantId);
         }
 
         await dbRun("COMMIT");
@@ -2249,7 +2905,7 @@ async function writeOrders(orders) {
     }
 }
 
-async function insertOrderIntoDatabase(order) {
+async function insertOrderIntoDatabase(order, restaurantId = defaultRestaurantId) {
     const normalizedReference = String(order.reference || "").trim();
 
     if (!normalizedReference) {
@@ -2257,29 +2913,35 @@ async function insertOrderIntoDatabase(order) {
     }
 
     await dbRun(
-        `INSERT OR REPLACE INTO orders (reference, payload, paid_at, created_at, status)
-         VALUES (?, ?, ?, ?, ?)`,
+        `INSERT OR REPLACE INTO orders (reference, payload, paid_at, created_at, status, restaurant_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
         [
             normalizedReference,
             JSON.stringify(order),
             String(order.paidAt || ""),
             String(order.paidAt || order.date || new Date().toISOString()),
-            String(order.status || "Paid")
+            String(order.status || "Paid"),
+            normalizeRestaurantId(restaurantId)
         ]
     );
 }
 
-async function writeSiteDataToDatabase(siteData) {
+async function writeRestaurantStateValue(restaurantId, key, value) {
     await dbRun(
-        `INSERT INTO app_state (key, value, updated_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+        `INSERT INTO restaurant_state (restaurant_id, key, value, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(restaurant_id, key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
         [
-            "site-data",
-            JSON.stringify(siteData),
+            normalizeRestaurantId(restaurantId),
+            String(key || "").trim(),
+            JSON.stringify(value),
             new Date().toISOString()
         ]
     );
+}
+
+async function writeSiteDataToDatabase(siteData, restaurantId = defaultRestaurantId) {
+    await writeRestaurantStateValue(restaurantId, "site-data", siteData);
 }
 
 function readJsonOrdersFallback() {
@@ -2362,8 +3024,8 @@ function normalizeStockQuantity(value) {
     return Math.max(0, Math.floor(parsedValue));
 }
 
-async function validateOrderStock(orderItems) {
-    const siteData = await readSiteData();
+async function validateOrderStock(orderItems, restaurantId = defaultRestaurantId) {
+    const siteData = await readSiteData(restaurantId);
     const menuItems = Array.isArray(siteData.menuItems) ? siteData.menuItems : [];
     const stockErrors = [];
 
@@ -2391,8 +3053,8 @@ async function validateOrderStock(orderItems) {
     return stockErrors;
 }
 
-async function reduceMenuStock(orderItems) {
-    const siteData = await readSiteData();
+async function reduceMenuStock(orderItems, restaurantId = defaultRestaurantId) {
+    const siteData = await readSiteData(restaurantId);
     const menuItems = Array.isArray(siteData.menuItems) ? siteData.menuItems : [];
     let didChange = false;
 
@@ -2441,7 +3103,7 @@ async function reduceMenuStock(orderItems) {
         await saveSiteData({
             ...siteData,
             menuItems
-        });
+        }, restaurantId);
     }
 }
 

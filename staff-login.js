@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const statusEl = document.getElementById("staff-login-status");
 
     async function fetchJson(url, options) {
-        const response = await fetch(url, options);
+        const response = await fetch(withRestaurantContext(url), options);
         const data = await response.json();
 
         if (!response.ok) {
@@ -20,12 +20,49 @@ document.addEventListener("DOMContentLoaded", () => {
         statusEl.className = `payment-status ${type}`;
     }
 
+    function getRestaurantContextId() {
+        const query = new URLSearchParams(window.location.search);
+        const fromUrl = String(query.get("restaurantId") || query.get("restaurant") || "").trim();
+        const fromStorage = String(localStorage.getItem("hungerstation.restaurantId") || "").trim();
+        return fromUrl || fromStorage || "";
+    }
+
+    function setRestaurantContextId(restaurantId) {
+        const normalizedId = String(restaurantId || "").trim();
+
+        if (normalizedId) {
+            localStorage.setItem("hungerstation.restaurantId", normalizedId);
+        }
+    }
+
+    function withRestaurantContext(url) {
+        const contextId = getRestaurantContextId();
+
+        if (!contextId) {
+            return url;
+        }
+
+        try {
+            const resolvedUrl = new URL(url, window.location.href);
+
+            if (resolvedUrl.origin !== window.location.origin) {
+                return url;
+            }
+
+            resolvedUrl.searchParams.set("restaurantId", contextId);
+            return `${resolvedUrl.pathname}${resolvedUrl.search}${resolvedUrl.hash}`;
+        } catch (error) {
+            return url;
+        }
+    }
+
     async function checkSession() {
         try {
             const data = await fetchJson("/api/staff/session");
 
             if (data.isAuthenticated) {
-                window.location.href = "staff.html";
+                setRestaurantContextId(getRestaurantContextId());
+                window.location.href = withRestaurantContext("staff.html");
             }
         } catch (error) {
             setStatus(error.message, "error");
@@ -54,8 +91,9 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             setStatus("Login successful. Redirecting...", "success");
+            setRestaurantContextId(getRestaurantContextId());
             window.setTimeout(() => {
-                window.location.href = "staff.html";
+                window.location.href = withRestaurantContext("staff.html");
             }, 300);
         } catch (error) {
             setStatus(error.message, "error");

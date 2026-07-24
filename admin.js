@@ -140,6 +140,42 @@ document.addEventListener("DOMContentLoaded", () => {
         return /^(?:https?:\/\/|\/|\.\/|images\/)/i.test(trimmedValue) ? trimmedValue : DEFAULT_MENU_IMAGE;
     }
 
+    function getRestaurantContextId() {
+        const query = new URLSearchParams(window.location.search);
+        const fromUrl = String(query.get("restaurantId") || query.get("restaurant") || "").trim();
+        const fromStorage = String(localStorage.getItem("hungerstation.restaurantId") || "").trim();
+        return fromUrl || fromStorage || "";
+    }
+
+    function syncRestaurantContext(restaurantId) {
+        const normalizedId = String(restaurantId || "").trim();
+
+        if (normalizedId) {
+            localStorage.setItem("hungerstation.restaurantId", normalizedId);
+        }
+    }
+
+    function withRestaurantContext(url) {
+        const contextId = getRestaurantContextId();
+
+        if (!contextId) {
+            return url;
+        }
+
+        try {
+            const resolvedUrl = new URL(url, window.location.href);
+
+            if (resolvedUrl.origin !== window.location.origin) {
+                return url;
+            }
+
+            resolvedUrl.searchParams.set("restaurantId", contextId);
+            return `${resolvedUrl.pathname}${resolvedUrl.search}${resolvedUrl.hash}`;
+        } catch (error) {
+            return url;
+        }
+    }
+
     function getOrderStatus(order) {
         return String(order.status || "Paid");
     }
@@ -157,7 +193,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function fetchJson(url, options) {
-        const response = await fetch(url, {
+        const response = await fetch(withRestaurantContext(url), {
             cache: "no-store",
             ...options
         });
@@ -1162,6 +1198,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function loadSiteData() {
         const siteData = await fetchJson("/api/site-data");
+        syncRestaurantContext(siteData.restaurantId || "");
         populateSiteSettings(siteData.site || {});
         populateCategoryEditor(siteData.categories || []);
         populateMenuEditor(siteData.menuItems || []);
@@ -1279,7 +1316,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await fetchJson("/api/admin/session");
 
             if (!data.hasAdminCredentials || !data.isAuthenticated) {
-                window.location.href = "admin-login.html";
+                window.location.href = withRestaurantContext("admin-login.html");
                 return;
             }
 
@@ -1329,7 +1366,7 @@ document.addEventListener("DOMContentLoaded", () => {
         menuAdminListEl.innerHTML = "";
         categoriesAdminListEl.innerHTML = "";
         zonesAdminListEl.innerHTML = "";
-        window.location.href = "admin-login.html";
+        window.location.href = withRestaurantContext("admin-login.html");
     });
 
     refreshOrdersBtn.addEventListener("click", refreshDashboard);
