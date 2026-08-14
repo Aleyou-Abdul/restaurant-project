@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Your Cart | My Restaurant</title>
-    <link rel="stylesheet" href="style.css?v=20260611a">
+    <link rel="stylesheet" href="style.css?v=hungerstation-restaurants">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -14,10 +14,10 @@
             <div id="cart-site-logo" class="logo">My Restaurant</div>
         </div>
         <nav>
-            <a href="index.html">Home</a>
-            <a href="index.html#menu">Menu</a>
-            <a href="index.html#contact">Contact</a>
-            <a href="cart.html" class="cart-icon" aria-label="View cart">
+            <a href="index.html" data-restaurant-link>Home</a>
+            <a href="index.html#menu" data-restaurant-link>Menu</a>
+            <a href="index.html#contact" data-restaurant-link>Contact</a>
+            <a href="cart.html" data-restaurant-link class="cart-icon" aria-label="View cart">
                 <span class="cart-icon-symbol" aria-hidden="true">&#128722;</span>
                 <span id="cart-count">0</span>
             </a>
@@ -129,6 +129,6 @@
     </footer>
 
     <script src="https://js.paystack.co/v2/inline.js"></script>
-    <script src="cart.js?v=20260621a"></script>
+    <script src="cart.js?v=hungerstation-restaurants"></script>
 </body>
 </html>

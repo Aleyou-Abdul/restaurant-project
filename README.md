@@ -183,6 +183,8 @@ The platform foundation adds isolated restaurant records, restaurant-specific ad
 
 Set `SUPER_ADMIN_USERNAME` and `SUPER_ADMIN_PASSWORD_HASH` in Render before using the workspace. The Super Admin can create a restaurant, issue its first admin account, approve or suspend the restaurant, remove a non-default restaurant, and configure the platform service fee. Existing Hungry Nomad data remains in the default tenant during the migration.
 
+Customers can browse approved restaurants at `/restaurants.html`. Selecting a card opens that restaurant's existing storefront with a `restaurantId` context. Carts, delivery details, order notes, and receipt drafts are stored separately for each restaurant in the browser.
+
 ## Useful Commands
 
 - `npm start`

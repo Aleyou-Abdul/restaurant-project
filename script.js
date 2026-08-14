@@ -66,6 +66,16 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function getCartStorageKey() {
+        return `hungerstation.cart:${getRestaurantContextId() || "hungerstation-default"}`;
+    }
+
+    function updateRestaurantLinks() {
+        document.querySelectorAll("[data-restaurant-link]").forEach((link) => {
+            link.href = withRestaurantContext(link.getAttribute("href") || "cart.html");
+        });
+    }
+
     function withRestaurantContext(url) {
         const contextId = getRestaurantContextId();
 
@@ -104,14 +114,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function getCart() {
         try {
-            return normalizeCart(JSON.parse(localStorage.getItem("cart")) || []);
+            const storageKey = getCartStorageKey();
+            const storedCart = localStorage.getItem(storageKey);
+            // Preserve the existing single-restaurant cart during the migration.
+            const legacyCart = storageKey.endsWith("hungerstation-default") ? localStorage.getItem("cart") : null;
+            return normalizeCart(JSON.parse(storedCart || legacyCart || "[]"));
         } catch (error) {
             return [];
         }
     }
 
     function saveCart(cart) {
-        localStorage.setItem("cart", JSON.stringify(cart));
+        localStorage.setItem(getCartStorageKey(), JSON.stringify(cart));
     }
 
     function updateCartCount() {
@@ -531,8 +545,10 @@ document.addEventListener("DOMContentLoaded", () => {
             ]);
 
             syncRestaurantContext(siteData.restaurantId || "");
+            updateRestaurantLinks();
             applySiteContent(siteData);
             renderTrendingItems(trendingData.items || []);
+            updateCartCount();
         } catch (error) {
             menuItemsEl.innerHTML = `<p class="empty-cart-message">${error.message}</p>`;
             trendingItemsEl.innerHTML = "";

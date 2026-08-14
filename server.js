@@ -126,6 +126,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/site-data") {
+        const restaurant = await getRestaurantById(requestRestaurantId);
+        if (!restaurant) {
+            return sendJson(res, 404, { ok: false, message: "Restaurant not found." });
+        }
+
+        if (!restaurant.approved || restaurant.suspended || restaurant.status !== "active") {
+            return sendJson(res, 403, { ok: false, message: "This restaurant is not currently available for ordering." });
+        }
+
         return sendJson(res, 200, await readSiteData(requestRestaurantId));
     }
 
@@ -172,6 +181,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/trending-items") {
+        const restaurant = await getRestaurantById(requestRestaurantId);
+        if (!restaurant || !restaurant.approved || restaurant.suspended || restaurant.status !== "active") {
+            return sendJson(res, 404, { ok: false, message: "Restaurant is not currently available for ordering." });
+        }
+
         const siteData = await readSiteData(requestRestaurantId);
         const trendingItems = getTrendingItems(siteData.menuItems, await readOrders(requestRestaurantId));
 
@@ -2052,6 +2066,39 @@ async function readRestaurants() {
         createdAt: row.created_at,
         updatedAt: row.updated_at
     }));
+}
+
+async function getRestaurantById(restaurantId) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    const row = await dbGet(
+        `SELECT id, slug, name, logo_path, phone, email, address, opening_time, closing_time,
+                delivery_available, rating, status, approved, suspended, created_at, updated_at
+         FROM restaurants WHERE id = ?`,
+        [normalizedRestaurantId]
+    );
+
+    if (!row) {
+        return null;
+    }
+
+    return {
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        logoPath: row.logo_path || "",
+        phone: row.phone || "",
+        email: row.email || "",
+        address: row.address || "",
+        openingTime: row.opening_time || "",
+        closingTime: row.closing_time || "",
+        deliveryAvailable: Boolean(row.delivery_available),
+        rating: Number(row.rating || 0),
+        status: row.status || "pending",
+        approved: Boolean(row.approved),
+        suspended: Boolean(row.suspended),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+    };
 }
 
 async function readPublicRestaurants() {

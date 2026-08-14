@@ -85,6 +85,16 @@
         }
     }
 
+    function getTenantStorageKey(key) {
+        return `hungerstation.${key}:${getRestaurantContextId() || "hungerstation-default"}`;
+    }
+
+    function updateRestaurantLinks() {
+        document.querySelectorAll("[data-restaurant-link]").forEach((link) => {
+            link.href = withRestaurantContext(link.getAttribute("href") || "index.html");
+        });
+    }
+
     function withRestaurantContext(url) {
         const contextId = getRestaurantContextId();
 
@@ -121,6 +131,7 @@
     async function loadSiteData() {
         siteData = await fetchJson("/api/site-data");
         syncRestaurantContext(siteData.restaurantId || "");
+        updateRestaurantLinks();
         return siteData;
     }
 
@@ -246,7 +257,10 @@
 
     function readRawCart() {
         try {
-            return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+            const storageKey = getTenantStorageKey(STORAGE_KEY);
+            const storedCart = localStorage.getItem(storageKey);
+            const legacyCart = storageKey.endsWith("hungerstation-default") ? localStorage.getItem(STORAGE_KEY) : null;
+            return JSON.parse(storedCart || legacyCart || "[]");
         } catch (error) {
             return [];
         }
@@ -254,12 +268,12 @@
 
     function getCart() {
         const cart = normalizeCart(readRawCart());
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cart));
+        localStorage.setItem(getTenantStorageKey(STORAGE_KEY), JSON.stringify(cart));
         return cart;
     }
 
     function saveCart(cart) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeCart(cart)));
+        localStorage.setItem(getTenantStorageKey(STORAGE_KEY), JSON.stringify(normalizeCart(cart)));
     }
 
     function updateCartCount(cart) {
@@ -272,19 +286,19 @@
     }
 
     function getOrderNote() {
-        return localStorage.getItem(ORDER_NOTE_KEY) || "";
+        return localStorage.getItem(getTenantStorageKey(ORDER_NOTE_KEY)) || "";
     }
 
     function saveOrderNote(note) {
-        localStorage.setItem(ORDER_NOTE_KEY, note);
+        localStorage.setItem(getTenantStorageKey(ORDER_NOTE_KEY), note);
     }
 
     function getFulfillmentType() {
-        return localStorage.getItem(FULFILLMENT_TYPE_KEY) === "pickup" ? "pickup" : "delivery";
+        return localStorage.getItem(getTenantStorageKey(FULFILLMENT_TYPE_KEY)) === "pickup" ? "pickup" : "delivery";
     }
 
     function saveFulfillmentType(type) {
-        localStorage.setItem(FULFILLMENT_TYPE_KEY, type === "pickup" ? "pickup" : "delivery");
+        localStorage.setItem(getTenantStorageKey(FULFILLMENT_TYPE_KEY), type === "pickup" ? "pickup" : "delivery");
     }
 
     function isPickupOrder() {
@@ -292,39 +306,39 @@
     }
 
     function getDeliveryArea() {
-        return localStorage.getItem(DELIVERY_AREA_KEY) || "";
+        return localStorage.getItem(getTenantStorageKey(DELIVERY_AREA_KEY)) || "";
     }
 
     function saveDeliveryArea(area) {
-        localStorage.setItem(DELIVERY_AREA_KEY, area);
+        localStorage.setItem(getTenantStorageKey(DELIVERY_AREA_KEY), area);
     }
 
     function getDeliveryLocation() {
-        return localStorage.getItem(DELIVERY_LOCATION_KEY) || "";
+        return localStorage.getItem(getTenantStorageKey(DELIVERY_LOCATION_KEY)) || "";
     }
 
     function saveDeliveryLocation(location) {
-        localStorage.setItem(DELIVERY_LOCATION_KEY, location);
+        localStorage.setItem(getTenantStorageKey(DELIVERY_LOCATION_KEY), location);
     }
 
     function getCustomerPhone() {
-        return localStorage.getItem(CUSTOMER_PHONE_KEY) || "";
+        return localStorage.getItem(getTenantStorageKey(CUSTOMER_PHONE_KEY)) || "";
     }
 
     function saveCustomerPhone(phone) {
-        localStorage.setItem(CUSTOMER_PHONE_KEY, phone);
+        localStorage.setItem(getTenantStorageKey(CUSTOMER_PHONE_KEY), phone);
     }
 
     function getLastReceipt() {
         try {
-            return JSON.parse(localStorage.getItem(LAST_RECEIPT_KEY)) || null;
+            return JSON.parse(localStorage.getItem(getTenantStorageKey(LAST_RECEIPT_KEY)) || "null");
         } catch (error) {
             return null;
         }
     }
 
     function saveLastReceipt(receipt) {
-        localStorage.setItem(LAST_RECEIPT_KEY, JSON.stringify(receipt));
+        localStorage.setItem(getTenantStorageKey(LAST_RECEIPT_KEY), JSON.stringify(receipt));
     }
 
     function getSelectedZone() {
@@ -869,6 +883,7 @@
                                 reference: transaction.reference,
                                 expectedAmount: total * 100,
                                 order: {
+                                    restaurantId: getRestaurantContextId(),
                                     email,
                                     customerPhone,
                                     fulfillmentType,
