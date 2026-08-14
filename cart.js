@@ -6,7 +6,7 @@
     const DELIVERY_LOCATION_KEY = "deliveryLocation";
     const CUSTOMER_PHONE_KEY = "customerPhone";
     const LAST_RECEIPT_KEY = "lastReceipt";
-    const SERVICE_FEE = 100;
+    let serviceFeeNaira = 100;
     let paystackPublicKey = "";
     let paymentConfig = {
         hasSecretKey: false,
@@ -125,6 +125,7 @@
             hasSplitConfig: Boolean(config.hasSplitConfig),
             splitConfig: config.splitConfig || null
         };
+        serviceFeeNaira = Math.max(0, Number(config.serviceFeeNaira || 100));
         return config;
     }
 
@@ -355,7 +356,7 @@
     }
 
     function getServiceFee() {
-        return SERVICE_FEE;
+        return serviceFeeNaira;
     }
 
     function getCartSubtotal(cart) {
@@ -960,6 +961,7 @@
                 }
 
                 if (configResult.status === "fulfilled") {
+                    renderCart();
                     if (!configResult.value.hasSecretKey) {
                         setPaymentStatus("Server is running, but PAYSTACK_SECRET_KEY is still missing.", "info");
                     } else if (configResult.value.requiresSplit !== false && !configResult.value.hasSplitConfig) {

@@ -16,6 +16,7 @@
                 <a href="#overview">Overview</a>
                 <a href="#restaurants">Restaurants</a>
                 <a href="#create-restaurant">Add Restaurant</a>
+                <a href="#payment-settings">Payment Settings</a>
                 <a href="#platform-settings">Platform Settings</a>
             </nav>
             <button id="super-admin-logout-btn" class="super-logout" type="button">Log Out</button>
@@ -61,6 +62,19 @@
                     <label>Admin username<input name="adminUsername" required autocomplete="off"></label>
                     <label class="super-form-wide">Temporary admin password<input name="adminPassword" type="password" required minlength="8" autocomplete="new-password"></label>
                     <div class="super-form-wide"><button type="submit">Create Restaurant</button></div>
+                </form>
+            </section>
+
+            <section id="payment-settings" class="super-panel">
+                <div class="super-panel-heading"><div><h2>Restaurant Payment Settings</h2><p>Use the restaurant&apos;s Paystack split code, or its subaccount code. Do not enter Paystack secret keys here.</p></div></div>
+                <form id="restaurant-payment-form" class="super-form-grid">
+                    <label class="super-form-wide">Restaurant<select id="payment-restaurant-id" name="restaurantId" required></select></label>
+                    <label>Paystack split code<input name="splitCode" placeholder="SPL_..."></label>
+                    <label>Paystack subaccount code<input name="subaccountCode" placeholder="ACCT_..."></label>
+                    <label>Subaccount charge (kobo)<input name="transactionChargeKobo" type="number" min="0" value="0"></label>
+                    <label>Fee bearer<select name="bearer"><option value="">Use Paystack default</option><option value="account">Main account</option><option value="subaccount">Subaccount</option></select></label>
+                    <label class="super-form-wide">Service fee for this restaurant (₦)<input id="restaurant-service-fee" name="serviceFeeNaira" type="number" min="0" max="10000" step="1" required></label>
+                    <div class="super-form-wide"><button type="submit">Save Payment Settings</button></div>
                 </form>
             </section>
 

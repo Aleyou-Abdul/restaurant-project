@@ -185,6 +185,8 @@ Set `SUPER_ADMIN_USERNAME` and `SUPER_ADMIN_PASSWORD_HASH` in Render before usin
 
 Customers can browse approved restaurants at `/restaurants.html`. Selecting a card opens that restaurant's existing storefront with a `restaurantId` context. Carts, delivery details, order notes, and receipt drafts are stored separately for each restaurant in the browser.
 
+Each restaurant also has its own Paystack payment record. From Super Admin, open **Restaurant Payment Settings**, select the restaurant, and enter either its Paystack split code or subaccount code. The platform `PAYSTACK_SECRET_KEY` remains only in Render Environment; never paste it into the dashboard or a restaurant setting.
+
 ## Useful Commands
 
 - `npm start`

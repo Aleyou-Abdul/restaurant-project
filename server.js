@@ -102,12 +102,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/config") {
+        const restaurant = await getRestaurantById(requestRestaurantId);
+        if (!restaurant || !restaurant.approved || restaurant.suspended || restaurant.status !== "active") {
+            return sendJson(res, 404, { ok: false, message: "Restaurant is not currently available for ordering." });
+        }
+
+        const paymentSettings = await getRestaurantPaymentSettings(requestRestaurantId);
+        const splitConfig = await getPaystackSplitConfig(requestRestaurantId);
         return sendJson(res, 200, {
             paystackPublicKey,
             hasSecretKey: Boolean(paystackSecretKey),
             requiresSplit: true,
-            hasSplitConfig: hasConfiguredPaystackSplit(),
-            splitConfig: getPaystackSplitConfig()
+            hasSplitConfig: Boolean(splitConfig),
+            splitConfig,
+            serviceFeeNaira: Number(paymentSettings.serviceFeeNaira || defaultPlatformServiceFeeNaira)
         });
     }
 
@@ -160,10 +168,18 @@ const server = http.createServer(async (req, res) => {
             return sendJson(res, 401, { ok: false, message: "Unauthorized. Please log in as Super Admin." });
         }
 
-        const restaurants = await readRestaurants();
+        const restaurants = await Promise.all((await readRestaurants()).map(async (restaurant) => {
+            const paymentSettings = await getRestaurantPaymentSettings(restaurant.id);
+            const splitConfig = await getPaystackSplitConfig(restaurant.id);
+            return {
+                ...restaurant,
+                paymentConfigured: Boolean(splitConfig),
+                serviceFeeNaira: Number(paymentSettings.serviceFeeNaira || defaultPlatformServiceFeeNaira)
+            };
+        }));
         const orders = await readAllPlatformOrders();
         const platformSettings = await readPlatformSettings();
-        const paidOrders = orders.filter((order) => String(order.paymentStatus || "").toLowerCase() === "paid");
+        const paidOrders = orders.filter((order) => String(order.paymentStatus || order.status || "").toLowerCase() === "paid");
 
         return sendJson(res, 200, {
             ok: true,
@@ -518,6 +534,33 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, { ok: true, message: "Platform service fee updated." });
     }
 
+    if (req.method === "POST" && requestUrl.pathname === "/api/super-admin/restaurants/payment-settings") {
+        if (!isSuperAdminAuthenticated(req)) {
+            return sendJson(res, 401, { ok: false, message: "Unauthorized. Please log in as Super Admin." });
+        }
+
+        const body = await readJsonBody(req);
+        const settings = await saveRestaurantPaymentSettings(body.restaurantId, body);
+        return sendJson(res, 200, { ok: true, message: "Restaurant payment settings saved.", settings });
+    }
+
+    if (req.method === "GET" && requestUrl.pathname === "/api/super-admin/restaurants/payment-settings") {
+        if (!isSuperAdminAuthenticated(req)) {
+            return sendJson(res, 401, { ok: false, message: "Unauthorized. Please log in as Super Admin." });
+        }
+
+        const restaurantId = String(requestUrl.searchParams.get("restaurantId") || "").trim();
+        const restaurant = await getRestaurantById(restaurantId);
+        if (!restaurant) {
+            return sendJson(res, 404, { ok: false, message: "Restaurant not found." });
+        }
+
+        return sendJson(res, 200, {
+            ok: true,
+            settings: await getRestaurantPaymentSettings(restaurant.id)
+        });
+    }
+
     if (req.method === "POST" && requestUrl.pathname === "/api/admin/login") {
         const body = await readJsonBody(req);
         const username = String(body.username || "").trim();
@@ -660,16 +703,24 @@ const server = http.createServer(async (req, res) => {
             });
         }
 
-        if (!hasConfiguredPaystackSplit()) {
-            return sendJson(res, 500, {
-                ok: false,
-                message: "Payment split is not configured. Add PAYSTACK_SPLIT_CODE before accepting orders."
-            });
-        }
-
         const body = await readJsonBody(req);
         const reference = String(body.reference || "").trim();
         const expectedAmount = Number(body.expectedAmount || 0);
+        const orderPayload = body.order || null;
+        const orderRestaurantId = normalizeRestaurantId((orderPayload && orderPayload.restaurantId) || requestRestaurantId);
+        const restaurant = await getRestaurantById(orderRestaurantId);
+        const splitConfig = await getPaystackSplitConfig(orderRestaurantId);
+
+        if (!restaurant || !restaurant.approved || restaurant.suspended || restaurant.status !== "active") {
+            return sendJson(res, 403, { ok: false, message: "This restaurant is not currently accepting orders." });
+        }
+
+        if (!splitConfig) {
+            return sendJson(res, 500, {
+                ok: false,
+                message: "Payment split is not configured for this restaurant yet."
+            });
+        }
 
         if (!reference) {
             return sendJson(res, 400, {
@@ -684,8 +735,6 @@ const server = http.createServer(async (req, res) => {
             const paidAmount = Number(data.amount || 0);
             const paymentSucceeded = verification.status === true && data.status === "success";
             const amountMatches = expectedAmount > 0 ? paidAmount === expectedAmount : true;
-            const orderPayload = body.order || null;
-
             if (!paymentSucceeded || !amountMatches) {
                 return sendJson(res, 400, {
                     ok: false,
@@ -697,8 +746,8 @@ const server = http.createServer(async (req, res) => {
             }
 
             if (orderPayload) {
-                const orderRestaurantId = normalizeRestaurantId(orderPayload.restaurantId || requestRestaurantId);
                 const stockErrors = await validateOrderStock(orderPayload.items || [], orderRestaurantId);
+                const paymentSettings = await getRestaurantPaymentSettings(orderRestaurantId);
 
                 if (stockErrors.length) {
                     logServerEvent("warn", "Order blocked due to stock validation failure.", {
@@ -719,6 +768,8 @@ const server = http.createServer(async (req, res) => {
                     reference: data.reference || reference,
                     date: new Date().toLocaleString(),
                     status: "Paid",
+                    paymentStatus: "paid",
+                    serviceFee: Number(paymentSettings.serviceFeeNaira || defaultPlatformServiceFeeNaira),
                     paymentChannel: data.channel || "",
                     paidAt: data.paid_at || "",
                     amountPaid: paidAmount
@@ -2311,28 +2362,93 @@ async function hasRestaurantAdminCredentials(restaurantId = defaultRestaurantId)
     return Boolean(user) || (normalizedRestaurantId === defaultRestaurantId && hasConfiguredAdminCredentials());
 }
 
-function hasConfiguredPaystackSplit() {
-    return Boolean(paystackSplitCode || paystackSubaccountCode);
+async function getRestaurantPaymentSettings(restaurantId = defaultRestaurantId) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    const row = await dbGet(
+        `SELECT paystack_split_code, paystack_subaccount_code, transaction_charge_kobo,
+                bearer, service_fee_naira, currency
+         FROM restaurant_payment_settings WHERE restaurant_id = ?`,
+        [normalizedRestaurantId]
+    );
+
+    return {
+        restaurantId: normalizedRestaurantId,
+        splitCode: row ? row.paystack_split_code || "" : "",
+        subaccountCode: row ? row.paystack_subaccount_code || "" : "",
+        transactionChargeKobo: Number(row ? row.transaction_charge_kobo : 0),
+        bearer: row && ["account", "subaccount"].includes(row.bearer) ? row.bearer : "",
+        serviceFeeNaira: Number(row ? row.service_fee_naira : defaultPlatformServiceFeeNaira),
+        currency: row ? row.currency || "NGN" : "NGN"
+    };
 }
 
-function getPaystackSplitConfig() {
-    if (paystackSplitCode) {
+async function getPaystackSplitConfig(restaurantId = defaultRestaurantId) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    const settings = await getRestaurantPaymentSettings(normalizedRestaurantId);
+    const splitCode = settings.splitCode || (normalizedRestaurantId === defaultRestaurantId ? paystackSplitCode : "");
+    const subaccountCode = settings.subaccountCode || (normalizedRestaurantId === defaultRestaurantId ? paystackSubaccountCode : "");
+
+    if (splitCode) {
         return {
             mode: "split-code",
-            splitCode: paystackSplitCode
+            splitCode
         };
     }
 
-    if (paystackSubaccountCode) {
+    if (subaccountCode) {
         return {
             mode: "subaccount",
-            subaccountCode: paystackSubaccountCode,
-            transactionChargeKobo: paystackTransactionChargeKobo > 0 ? paystackTransactionChargeKobo : 0,
-            bearer: ["account", "subaccount"].includes(paystackBearer) ? paystackBearer : ""
+            subaccountCode,
+            transactionChargeKobo: settings.transactionChargeKobo > 0
+                ? settings.transactionChargeKobo
+                : Math.max(0, paystackTransactionChargeKobo),
+            bearer: settings.bearer || (["account", "subaccount"].includes(paystackBearer) ? paystackBearer : "")
         };
     }
 
     return null;
+}
+
+async function saveRestaurantPaymentSettings(restaurantId, input) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    const restaurant = await getRestaurantById(normalizedRestaurantId);
+    if (!restaurant) {
+        throw new Error("Restaurant not found.");
+    }
+
+    const splitCode = String(input.splitCode || "").trim();
+    const subaccountCode = String(input.subaccountCode || "").trim();
+    const transactionChargeKobo = Math.max(0, Math.round(Number(input.transactionChargeKobo || 0)));
+    const bearer = ["account", "subaccount"].includes(String(input.bearer || "").trim())
+        ? String(input.bearer).trim()
+        : "";
+    const requestedServiceFee = Number(input.serviceFeeNaira);
+    const existingSettings = await getRestaurantPaymentSettings(normalizedRestaurantId);
+    const serviceFeeNaira = Number.isFinite(requestedServiceFee)
+        ? Math.max(0, Math.min(10000, Math.round(requestedServiceFee)))
+        : existingSettings.serviceFeeNaira;
+
+    if (splitCode && subaccountCode) {
+        throw new Error("Use either a Paystack split code or a subaccount code, not both.");
+    }
+
+    const now = new Date().toISOString();
+    await dbRun(
+        `INSERT INTO restaurant_payment_settings (
+            restaurant_id, paystack_split_code, paystack_subaccount_code, transaction_charge_kobo,
+            bearer, service_fee_naira, currency, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 'NGN', ?, ?)
+        ON CONFLICT(restaurant_id) DO UPDATE SET
+            paystack_split_code = excluded.paystack_split_code,
+            paystack_subaccount_code = excluded.paystack_subaccount_code,
+            transaction_charge_kobo = excluded.transaction_charge_kobo,
+            bearer = excluded.bearer,
+            service_fee_naira = excluded.service_fee_naira,
+            updated_at = excluded.updated_at`,
+        [normalizedRestaurantId, splitCode, subaccountCode, transactionChargeKobo, bearer, serviceFeeNaira, now, now]
+    );
+
+    return getRestaurantPaymentSettings(normalizedRestaurantId);
 }
 
 function verifyConfiguredPassword(inputPassword, plainPassword, passwordHash) {
