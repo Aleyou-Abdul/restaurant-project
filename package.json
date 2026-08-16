@@ -12,6 +12,7 @@
     "hash-password": "node scripts/hash-password.js",
     "generate-encryption-key": "node scripts/generate-encryption-key.js",
     "check-db": "node scripts/check-db.js",
+    "check-tenants": "node scripts/check-tenant-isolation.js",
     "backup-db": "node scripts/backup-db.js"
   },
   "dependencies": {

@@ -62,6 +62,10 @@ This project is a restaurant ordering system with:
 - `data/logs/server.log`
   Server-side event log.
 
+## Multi-Restaurant Safety Check
+
+Run `npm run check-tenants` before a multi-restaurant release. It creates two temporary restaurants and verifies that one restaurant admin cannot access the other restaurant's protected orders, staff, or settings.
+
 ## Render Demo Deployment
 
 The included `render.yaml` is configured for a free Render demo link.
