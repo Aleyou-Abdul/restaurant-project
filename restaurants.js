@@ -11,6 +11,33 @@ document.addEventListener("DOMContentLoaded", () => {
     let foodCategories = [];
     let selectedFoodCategory = "All";
 
+    function wait(milliseconds) {
+        return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+    }
+
+    // Free demo hosts can briefly refuse requests while waking; retry public data before showing an error.
+    async function fetchPublicApi(path) {
+        let lastError;
+        const retryDelays = [0, 1500, 4000];
+
+        for (let attempt = 0; attempt < retryDelays.length; attempt += 1) {
+            if (retryDelays[attempt]) await wait(retryDelays[attempt]);
+
+            try {
+                const response = await fetch(path, { cache: "no-store" });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || "Could not load HungerStation data.");
+                return data;
+            } catch (error) {
+                lastError = error;
+            }
+        }
+
+        throw new Error(lastError && lastError.message !== "Failed to fetch"
+            ? lastError.message
+            : "HungerStation is temporarily unavailable. Please refresh in a moment.");
+    }
+
     function escapeHtml(value) {
         return String(value || "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[character]));
     }
@@ -80,9 +107,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function loadRestaurants() {
         try {
-            const response = await fetch("/api/restaurants");
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || "Could not load restaurants.");
+            const data = await fetchPublicApi("/api/restaurants");
             restaurants = data.restaurants || [];
             render();
         } catch (error) {
@@ -92,9 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function loadFood() {
         try {
-            const response = await fetch("/api/food-search");
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || "Could not load meals.");
+            const data = await fetchPublicApi("/api/food-search");
             foodItems = data.items || [];
             foodCategories = data.categories || [];
             renderFoodCategories();
