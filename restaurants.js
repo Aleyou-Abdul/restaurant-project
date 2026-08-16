@@ -6,6 +6,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const foodListEl = document.getElementById("food-directory-list");
     const foodCountEl = document.getElementById("food-count");
     const foodCategoryFiltersEl = document.getElementById("food-category-filters");
+    const platformTrendingListEl = document.getElementById("platform-trending-list");
+    const trendingCountEl = document.getElementById("trending-count");
     let restaurants = [];
     let foodItems = [];
     let foodCategories = [];
@@ -105,6 +107,20 @@ document.addEventListener("DOMContentLoaded", () => {
             </article>`).join("") || '<p class="directory-empty">No meals match that search yet.</p>';
     }
 
+    function renderPlatformTrending(items) {
+        trendingCountEl.textContent = `${items.length} popular meal${items.length === 1 ? "" : "s"}`;
+        platformTrendingListEl.innerHTML = items.map((item) => `
+            <article class="food-directory-card platform-trending-card">
+                <img src="${escapeHtml(imageSource(item.image))}" alt="${escapeHtml(item.name)}">
+                <div>
+                    <span>${escapeHtml(item.restaurantName)}</span>
+                    <h3>${escapeHtml(item.name)}</h3>
+                    <p>${Number(item.orderCount)} order${Number(item.orderCount) === 1 ? "" : "s"} this week · ${escapeHtml(item.category)}</p>
+                    <div class="food-directory-card-footer"><strong>${formatPrice(item.price)}</strong><a href="index.html?restaurantId=${encodeURIComponent(item.restaurantId)}#menu">Order Now</a></div>
+                </div>
+            </article>`).join("") || '<p class="directory-empty">Trending meals will appear here after customers place orders this week.</p>';
+    }
+
     async function loadRestaurants() {
         try {
             const data = await fetchPublicApi("/api/restaurants");
@@ -127,6 +143,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    async function loadPlatformTrending() {
+        try {
+            const data = await fetchPublicApi("/api/platform/trending-items");
+            renderPlatformTrending(data.items || []);
+        } catch (error) {
+            platformTrendingListEl.innerHTML = `<p class="directory-empty">${escapeHtml(error.message)}</p>`;
+        }
+    }
+
     searchEl.addEventListener("input", render);
     foodSearchEl.addEventListener("input", renderFood);
     foodCategoryFiltersEl.addEventListener("click", (event) => {
@@ -138,4 +163,5 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     loadRestaurants();
     loadFood();
+    loadPlatformTrending();
 });

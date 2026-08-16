@@ -187,6 +187,55 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 200, { ok: true, items, categories });
     }
 
+    if (req.method === "GET" && requestUrl.pathname === "/api/platform/trending-items") {
+        const restaurants = await readPublicRestaurants();
+        const weekStart = Date.now() - (7 * 24 * 60 * 60 * 1000);
+
+        // Aggregate within each approved tenant so matching food names never cross restaurant boundaries.
+        const restaurantItems = await Promise.all(restaurants.map(async (restaurant) => {
+            const [siteData, orders] = await Promise.all([
+                readSiteData(restaurant.id),
+                readOrders(restaurant.id)
+            ]);
+            const orderCountByItem = new Map();
+
+            orders
+                .filter((order) => String(order.paymentStatus || "").toLowerCase() === "paid")
+                .filter((order) => {
+                    const timestamp = new Date(order.paidAt || order.statusUpdatedAt || order.date || 0).getTime();
+                    return Number.isFinite(timestamp) && timestamp >= weekStart;
+                })
+                .forEach((order) => {
+                    (Array.isArray(order.items) ? order.items : []).forEach((item) => {
+                        const itemKey = String(item && (item.id || item.name) || "").trim();
+                        if (!itemKey) return;
+                        orderCountByItem.set(itemKey, (orderCountByItem.get(itemKey) || 0) + Math.max(1, Number(item.quantity || 1)));
+                    });
+                });
+
+            return (siteData.menuItems || [])
+                .filter((item) => item && !["hidden", "out-of-stock"].includes(item.availability))
+                .map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    image: item.image,
+                    price: Number(item.price || 0),
+                    category: item.category || "Food",
+                    preparationMinutes: Number(item.preparationMinutes || 25),
+                    restaurantId: restaurant.id,
+                    restaurantName: restaurant.name,
+                    orderCount: orderCountByItem.get(String(item.id || item.name)) || 0
+                }))
+                .filter((item) => item.orderCount > 0);
+        }));
+
+        const items = restaurantItems.flat()
+            .sort((left, right) => right.orderCount - left.orderCount || left.name.localeCompare(right.name))
+            .slice(0, 6);
+
+        return sendJson(res, 200, { ok: true, items, periodDays: 7 });
+    }
+
     if (req.method === "GET" && requestUrl.pathname === "/api/super-admin/session") {
         return sendJson(res, 200, {
             ok: true,

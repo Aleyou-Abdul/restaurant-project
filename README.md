@@ -25,6 +25,7 @@ This project is a restaurant ordering system with:
 - `restaurants.html`: public directory of approved restaurants.
 - Customers can search restaurants, search food across approved restaurants, filter food by category, and open the correct restaurant menu to order.
 - Food results show the restaurant name, food image, price, and an estimated preparation time set by that restaurant's admin.
+- `Trending This Week` combines paid orders from the last seven days across approved restaurants while keeping each restaurant's menu and orders isolated.
 
 ## Core Scripts
 
