@@ -410,6 +410,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 <input type="number" data-field="price" value="${item.price || 0}">
             </div>
             <div class="admin-field">
+                <label>Preparation Time (Minutes)</label>
+                <input type="number" min="5" max="180" step="5" data-field="preparationMinutes" value="${item.preparationMinutes || 25}">
+            </div>
+            <div class="admin-field">
                 <label>Category</label>
                 <select data-field="category">${buildCategoryOptions(item.category || "")}</select>
             </div>
@@ -565,6 +569,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const menuItems = menuRows.map((row, index) => {
             const name = row.querySelector('[data-field="name"]').value.trim();
             const price = Number(row.querySelector('[data-field="price"]').value || 0);
+            const preparationMinutes = Number(row.querySelector('[data-field="preparationMinutes"]').value || 25);
             const category = row.querySelector('[data-field="category"]').value.trim();
             const image = row.querySelector('[data-field="image"]').value.trim();
             const availability = row.querySelector('[data-field="availability"]').value.trim();
@@ -579,10 +584,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(`Enter a valid remaining quantity for menu item ${index + 1}.`);
             }
 
+            if (!Number.isFinite(preparationMinutes) || preparationMinutes < 5 || preparationMinutes > 180) {
+                throw new Error(`Enter a preparation time between 5 and 180 minutes for menu item ${index + 1}.`);
+            }
+
             return {
                 id: name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
                 name,
                 price,
+                preparationMinutes: Math.round(preparationMinutes),
                 image,
                 category,
                 availability,

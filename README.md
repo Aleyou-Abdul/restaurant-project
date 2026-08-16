@@ -20,6 +20,12 @@ This project is a restaurant ordering system with:
 - `staff.html`: limited staff dashboard for orders and stock
 - `instant-tech-solution.html`: company profile page
 
+## HungerStation Discovery
+
+- `restaurants.html`: public directory of approved restaurants.
+- Customers can search restaurants, search food across approved restaurants, filter food by category, and open the correct restaurant menu to order.
+- Food results show the restaurant name, food image, price, and an estimated preparation time set by that restaurant's admin.
+
 ## Core Scripts
 
 - `server.js`

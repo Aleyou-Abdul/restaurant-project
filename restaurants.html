@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Restaurants | HungerStation</title>
-    <link rel="stylesheet" href="style.css?v=hungerstation-restaurants">
+    <link rel="stylesheet" href="style.css?v=hungerstation-food-search">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="platform-customer-body">
@@ -21,12 +21,21 @@
                 <span>Search restaurants</span>
                 <input id="restaurant-search-input" type="search" placeholder="Search by name, address, or area">
             </label>
+            <label class="restaurant-search" for="food-search-input">
+                <span>Or search food across HungerStation</span>
+                <input id="food-search-input" type="search" placeholder="Search jollof rice, shawarma, burger...">
+            </label>
+        </section>
+        <section id="food-search" class="restaurant-directory-section food-directory-section">
+            <div class="directory-heading"><div><p class="directory-kicker">Discover food</p><h2>Meals across HungerStation</h2></div><span id="food-count"></span></div>
+            <div id="food-category-filters" class="directory-category-filters"></div>
+            <div id="food-directory-list" class="food-directory-grid" aria-live="polite"></div>
         </section>
         <section class="restaurant-directory-section">
             <div class="directory-heading"><div><p class="directory-kicker">Available now</p><h2>Restaurants near you</h2></div><span id="restaurant-count"></span></div>
             <div id="restaurant-directory-list" class="restaurant-directory-grid" aria-live="polite"></div>
         </section>
     </main>
-    <script src="restaurants.js"></script>
+    <script src="restaurants.js?v=hungerstation-food-search"></script>
 </body>
 </html>

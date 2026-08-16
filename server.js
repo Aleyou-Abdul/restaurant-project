@@ -157,6 +157,35 @@ const server = http.createServer(async (req, res) => {
         });
     }
 
+    if (req.method === "GET" && requestUrl.pathname === "/api/food-search") {
+        const query = String(requestUrl.searchParams.get("query") || "").trim().toLowerCase();
+        const selectedCategory = String(requestUrl.searchParams.get("category") || "").trim().toLowerCase();
+        const restaurants = await readPublicRestaurants();
+        const foodGroups = await Promise.all(restaurants.map(async (restaurant) => {
+            const siteData = await readSiteData(restaurant.id);
+            return (siteData.menuItems || [])
+                .filter((item) => item && !["hidden", "out-of-stock"].includes(item.availability))
+                .map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    image: item.image,
+                    price: Number(item.price || 0),
+                    category: item.category || "Food",
+                    preparationMinutes: Number(item.preparationMinutes || 25),
+                    restaurantId: restaurant.id,
+                    restaurantName: restaurant.name,
+                    restaurantSlug: restaurant.slug
+                }));
+        }));
+        const items = foodGroups.flat()
+            .filter((item) => !selectedCategory || item.category.toLowerCase() === selectedCategory)
+            .filter((item) => !query || `${item.name} ${item.category} ${item.restaurantName}`.toLowerCase().includes(query))
+            .slice(0, 150);
+        const categories = [...new Set(foodGroups.flat().map((item) => item.category).filter(Boolean))].sort();
+
+        return sendJson(res, 200, { ok: true, items, categories });
+    }
+
     if (req.method === "GET" && requestUrl.pathname === "/api/super-admin/session") {
         return sendJson(res, 200, {
             ok: true,
@@ -3230,6 +3259,7 @@ function safeParseJson(value) {
 
 function normalizeMenuItem(item, fallbackCategory) {
     const normalizedQuantity = normalizeStockQuantity(item.stockQuantity);
+    const preparationTime = Number(item.preparationMinutes);
     let availability = normalizeAvailability(item.availability);
 
     if (availability !== "hidden") {
@@ -3248,6 +3278,7 @@ function normalizeMenuItem(item, fallbackCategory) {
         price: Number(item.price || 0),
         image: normalizeAssetPath(item.image || ""),
         category: String(item.category || fallbackCategory).trim() || fallbackCategory,
+        preparationMinutes: Number.isFinite(preparationTime) ? Math.min(180, Math.max(5, Math.round(preparationTime))) : 25,
         availability,
         stockQuantity: normalizedQuantity
     };
