@@ -55,10 +55,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const data = await request(`/api/super-admin/restaurants/payment-settings?restaurantId=${encodeURIComponent(restaurantId)}`);
         const form = document.getElementById("restaurant-payment-form");
+        form.elements.publicKey.value = data.settings.publicKey || "";
+        form.elements.secretKey.value = "";
         form.elements.splitCode.value = data.settings.splitCode || "";
-        form.elements.subaccountCode.value = data.settings.subaccountCode || "";
-        form.elements.transactionChargeKobo.value = Number(data.settings.transactionChargeKobo || 0);
-        form.elements.bearer.value = data.settings.bearer || "";
         restaurantServiceFeeEl.value = Number(data.settings.serviceFeeNaira || 100);
     }
 

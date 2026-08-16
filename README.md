@@ -185,7 +185,9 @@ Set `SUPER_ADMIN_USERNAME` and `SUPER_ADMIN_PASSWORD_HASH` in Render before usin
 
 Customers can browse approved restaurants at `/restaurants.html`. Selecting a card opens that restaurant's existing storefront with a `restaurantId` context. Carts, delivery details, order notes, and receipt drafts are stored separately for each restaurant in the browser.
 
-Each restaurant also has its own Paystack payment record. From Super Admin, open **Restaurant Payment Settings**, select the restaurant, and enter either its Paystack split code or subaccount code. The platform `PAYSTACK_SECRET_KEY` remains only in Render Environment; never paste it into the dashboard or a restaurant setting.
+Each restaurant can use its own Paystack account. From Super Admin, open **Restaurant Payment Settings**, select the restaurant, and enter its Paystack public key, secret key, and split code. The restaurant creates the split in its Paystack dashboard, with Instant Tech Solution as its subaccount receiving the fixed service fee. Restaurant secret keys are encrypted in SQLite using `PAYSTACK_CREDENTIALS_ENCRYPTION_KEY`, which must be set in Render before saving credentials.
+
+Generate the encryption key once with `npm run generate-encryption-key`, put the full result in Render as `PAYSTACK_CREDENTIALS_ENCRYPTION_KEY`, and keep it unchanged. If it is lost or changed later, saved restaurant Paystack secret keys cannot be decrypted and must be entered again.
 
 ## Useful Commands
 

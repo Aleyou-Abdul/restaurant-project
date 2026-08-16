@@ -30,6 +30,7 @@ const paystackSplitCode = process.env.PAYSTACK_SPLIT_CODE || "";
 const paystackSubaccountCode = process.env.PAYSTACK_SUBACCOUNT_CODE || "";
 const paystackTransactionChargeKobo = Number(process.env.PAYSTACK_TRANSACTION_CHARGE_KOBO || 0);
 const paystackBearer = process.env.PAYSTACK_BEARER || "";
+const paystackCredentialsEncryptionKey = process.env.PAYSTACK_CREDENTIALS_ENCRYPTION_KEY || "";
 const adminUsername = process.env.ADMIN_USERNAME || "";
 const adminPassword = process.env.ADMIN_PASSWORD || "";
 const adminPasswordHash = process.env.ADMIN_PASSWORD_HASH || "";
@@ -107,11 +108,12 @@ const server = http.createServer(async (req, res) => {
             return sendJson(res, 404, { ok: false, message: "Restaurant is not currently available for ordering." });
         }
 
+        const paymentCredentials = await getRestaurantPaymentCredentials(requestRestaurantId);
         const paymentSettings = await getRestaurantPaymentSettings(requestRestaurantId);
         const splitConfig = await getPaystackSplitConfig(requestRestaurantId);
         return sendJson(res, 200, {
-            paystackPublicKey,
-            hasSecretKey: Boolean(paystackSecretKey),
+            paystackPublicKey: paymentCredentials.publicKey,
+            hasSecretKey: Boolean(paymentCredentials.secretKey),
             requiresSplit: true,
             hasSplitConfig: Boolean(splitConfig),
             splitConfig,
@@ -170,10 +172,11 @@ const server = http.createServer(async (req, res) => {
 
         const restaurants = await Promise.all((await readRestaurants()).map(async (restaurant) => {
             const paymentSettings = await getRestaurantPaymentSettings(restaurant.id);
+            const paymentCredentials = await getRestaurantPaymentCredentials(restaurant.id);
             const splitConfig = await getPaystackSplitConfig(restaurant.id);
             return {
                 ...restaurant,
-                paymentConfigured: Boolean(splitConfig),
+                paymentConfigured: Boolean(splitConfig && paymentCredentials.publicKey && paymentCredentials.secretKey),
                 serviceFeeNaira: Number(paymentSettings.serviceFeeNaira || defaultPlatformServiceFeeNaira)
             };
         }));
@@ -557,7 +560,7 @@ const server = http.createServer(async (req, res) => {
 
         return sendJson(res, 200, {
             ok: true,
-            settings: await getRestaurantPaymentSettings(restaurant.id)
+            settings: sanitizeRestaurantPaymentSettings(await getRestaurantPaymentSettings(restaurant.id))
         });
     }
 
@@ -696,19 +699,18 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && requestUrl.pathname === "/api/paystack/verify") {
-        if (!paystackSecretKey) {
-            return sendJson(res, 500, {
-                ok: false,
-                message: "PAYSTACK_SECRET_KEY is not set on the server."
-            });
-        }
-
         const body = await readJsonBody(req);
         const reference = String(body.reference || "").trim();
         const expectedAmount = Number(body.expectedAmount || 0);
         const orderPayload = body.order || null;
         const orderRestaurantId = normalizeRestaurantId((orderPayload && orderPayload.restaurantId) || requestRestaurantId);
+
+        if (orderRestaurantId !== requestRestaurantId) {
+            return sendJson(res, 400, { ok: false, message: "Order restaurant does not match the checkout restaurant." });
+        }
+
         const restaurant = await getRestaurantById(orderRestaurantId);
+        const paymentCredentials = await getRestaurantPaymentCredentials(orderRestaurantId);
         const splitConfig = await getPaystackSplitConfig(orderRestaurantId);
 
         if (!restaurant || !restaurant.approved || restaurant.suspended || restaurant.status !== "active") {
@@ -722,6 +724,13 @@ const server = http.createServer(async (req, res) => {
             });
         }
 
+        if (!paymentCredentials.secretKey) {
+            return sendJson(res, 500, {
+                ok: false,
+                message: "Paystack secret key is not configured for this restaurant yet."
+            });
+        }
+
         if (!reference) {
             return sendJson(res, 400, {
                 ok: false,
@@ -730,7 +739,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         try {
-            const verification = await verifyTransaction(reference, paystackSecretKey);
+            const verification = await verifyTransaction(reference, paymentCredentials.secretKey);
             const data = verification.data || {};
             const paidAmount = Number(data.amount || 0);
             const paymentSucceeded = verification.status === true && data.status === "success";
@@ -1319,6 +1328,8 @@ async function initializeDatabase() {
     await dbRun(`
         CREATE TABLE IF NOT EXISTS restaurant_payment_settings (
             restaurant_id TEXT PRIMARY KEY,
+            paystack_public_key TEXT NOT NULL DEFAULT '',
+            paystack_secret_key_encrypted TEXT NOT NULL DEFAULT '',
             paystack_split_code TEXT NOT NULL DEFAULT '',
             paystack_subaccount_code TEXT NOT NULL DEFAULT '',
             transaction_charge_kobo INTEGER NOT NULL DEFAULT 0,
@@ -1341,6 +1352,8 @@ async function initializeDatabase() {
     await ensureTableColumn("orders", "restaurant_id", "TEXT NOT NULL DEFAULT 'hungerstation-default'");
     await ensureTableColumn("staff_users", "restaurant_id", "TEXT NOT NULL DEFAULT 'hungerstation-default'");
     await ensureTableColumn("closing_history", "restaurant_id", "TEXT NOT NULL DEFAULT 'hungerstation-default'");
+    await ensureTableColumn("restaurant_payment_settings", "paystack_public_key", "TEXT NOT NULL DEFAULT ''");
+    await ensureTableColumn("restaurant_payment_settings", "paystack_secret_key_encrypted", "TEXT NOT NULL DEFAULT ''");
     await ensureDefaultStaffUserFromEnv();
     await migrateJsonDataIfNeeded();
     await ensureDefaultRestaurantSeed();
@@ -2365,14 +2378,16 @@ async function hasRestaurantAdminCredentials(restaurantId = defaultRestaurantId)
 async function getRestaurantPaymentSettings(restaurantId = defaultRestaurantId) {
     const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
     const row = await dbGet(
-        `SELECT paystack_split_code, paystack_subaccount_code, transaction_charge_kobo,
-                bearer, service_fee_naira, currency
+        `SELECT paystack_public_key, paystack_secret_key_encrypted, paystack_split_code,
+                paystack_subaccount_code, transaction_charge_kobo, bearer, service_fee_naira, currency
          FROM restaurant_payment_settings WHERE restaurant_id = ?`,
         [normalizedRestaurantId]
     );
 
     return {
         restaurantId: normalizedRestaurantId,
+        publicKey: row ? row.paystack_public_key || "" : "",
+        secretKeyEncrypted: row ? row.paystack_secret_key_encrypted || "" : "",
         splitCode: row ? row.paystack_split_code || "" : "",
         subaccountCode: row ? row.paystack_subaccount_code || "" : "",
         transactionChargeKobo: Number(row ? row.transaction_charge_kobo : 0),
@@ -2380,6 +2395,30 @@ async function getRestaurantPaymentSettings(restaurantId = defaultRestaurantId) 
         serviceFeeNaira: Number(row ? row.service_fee_naira : defaultPlatformServiceFeeNaira),
         currency: row ? row.currency || "NGN" : "NGN"
     };
+}
+
+function sanitizeRestaurantPaymentSettings(settings) {
+    const isDefaultRestaurant = settings.restaurantId === defaultRestaurantId;
+    return {
+        restaurantId: settings.restaurantId,
+        publicKey: settings.publicKey || (isDefaultRestaurant ? paystackPublicKey : ""),
+        hasSecretKey: Boolean(settings.secretKeyEncrypted || (isDefaultRestaurant && paystackSecretKey)),
+        splitCode: settings.splitCode || "",
+        serviceFeeNaira: Number(settings.serviceFeeNaira || defaultPlatformServiceFeeNaira),
+        currency: settings.currency || "NGN"
+    };
+}
+
+async function getRestaurantPaymentCredentials(restaurantId = defaultRestaurantId) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    const settings = await getRestaurantPaymentSettings(normalizedRestaurantId);
+    const encryptedSecret = settings.secretKeyEncrypted || "";
+    const publicKey = settings.publicKey || (normalizedRestaurantId === defaultRestaurantId ? paystackPublicKey : "");
+    const secretKey = encryptedSecret
+        ? decryptRestaurantPaymentSecret(encryptedSecret)
+        : (normalizedRestaurantId === defaultRestaurantId ? paystackSecretKey : "");
+
+    return { publicKey, secretKey };
 }
 
 async function getPaystackSplitConfig(restaurantId = defaultRestaurantId) {
@@ -2417,38 +2456,85 @@ async function saveRestaurantPaymentSettings(restaurantId, input) {
     }
 
     const splitCode = String(input.splitCode || "").trim();
-    const subaccountCode = String(input.subaccountCode || "").trim();
-    const transactionChargeKobo = Math.max(0, Math.round(Number(input.transactionChargeKobo || 0)));
-    const bearer = ["account", "subaccount"].includes(String(input.bearer || "").trim())
-        ? String(input.bearer).trim()
-        : "";
+    const publicKey = String(input.publicKey || "").trim();
+    const secretKey = String(input.secretKey || "").trim();
     const requestedServiceFee = Number(input.serviceFeeNaira);
     const existingSettings = await getRestaurantPaymentSettings(normalizedRestaurantId);
+    const defaultPublicKey = normalizedRestaurantId === defaultRestaurantId ? paystackPublicKey : "";
+    const defaultSecretKey = normalizedRestaurantId === defaultRestaurantId ? paystackSecretKey : "";
     const serviceFeeNaira = Number.isFinite(requestedServiceFee)
         ? Math.max(0, Math.min(10000, Math.round(requestedServiceFee)))
         : existingSettings.serviceFeeNaira;
 
-    if (splitCode && subaccountCode) {
-        throw new Error("Use either a Paystack split code or a subaccount code, not both.");
+    if (!splitCode) {
+        throw new Error("A Paystack split code is required for this restaurant.");
+    }
+
+    if (!publicKey && !existingSettings.publicKey && !defaultPublicKey) {
+        throw new Error("A Paystack public key is required for this restaurant.");
+    }
+
+    if (!secretKey && !existingSettings.secretKeyEncrypted && !defaultSecretKey) {
+        throw new Error("A Paystack secret key is required for this restaurant.");
     }
 
     const now = new Date().toISOString();
+    const encryptedSecret = secretKey
+        ? encryptRestaurantPaymentSecret(secretKey)
+        : existingSettings.secretKeyEncrypted;
     await dbRun(
         `INSERT INTO restaurant_payment_settings (
-            restaurant_id, paystack_split_code, paystack_subaccount_code, transaction_charge_kobo,
-            bearer, service_fee_naira, currency, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 'NGN', ?, ?)
+            restaurant_id, paystack_public_key, paystack_secret_key_encrypted, paystack_split_code,
+            paystack_subaccount_code, transaction_charge_kobo, bearer, service_fee_naira, currency, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, '', 0, '', ?, 'NGN', ?, ?)
         ON CONFLICT(restaurant_id) DO UPDATE SET
+            paystack_public_key = excluded.paystack_public_key,
+            paystack_secret_key_encrypted = excluded.paystack_secret_key_encrypted,
             paystack_split_code = excluded.paystack_split_code,
-            paystack_subaccount_code = excluded.paystack_subaccount_code,
-            transaction_charge_kobo = excluded.transaction_charge_kobo,
-            bearer = excluded.bearer,
             service_fee_naira = excluded.service_fee_naira,
             updated_at = excluded.updated_at`,
-        [normalizedRestaurantId, splitCode, subaccountCode, transactionChargeKobo, bearer, serviceFeeNaira, now, now]
+        [normalizedRestaurantId, publicKey || existingSettings.publicKey || defaultPublicKey, encryptedSecret, splitCode, serviceFeeNaira, now, now]
     );
 
     return getRestaurantPaymentSettings(normalizedRestaurantId);
+}
+
+function getRestaurantPaymentEncryptionKey() {
+    const configuredValue = String(paystackCredentialsEncryptionKey || "").trim();
+    if (!configuredValue) {
+        throw new Error("PAYSTACK_CREDENTIALS_ENCRYPTION_KEY is required before saving restaurant Paystack credentials.");
+    }
+
+    if (/^[a-f0-9]{64}$/i.test(configuredValue)) {
+        return Buffer.from(configuredValue, "hex");
+    }
+
+    return crypto.createHash("sha256").update(configuredValue).digest();
+}
+
+function encryptRestaurantPaymentSecret(secret) {
+    const encryptionKey = getRestaurantPaymentEncryptionKey();
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm", encryptionKey, iv);
+    const encrypted = Buffer.concat([cipher.update(String(secret), "utf8"), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    return `v1.${iv.toString("base64")}.${authTag.toString("base64")}.${encrypted.toString("base64")}`;
+}
+
+function decryptRestaurantPaymentSecret(encryptedValue) {
+    try {
+        const [version, ivValue, authTagValue, ciphertextValue] = String(encryptedValue || "").split(".");
+        if (version !== "v1" || !ivValue || !authTagValue || !ciphertextValue) {
+            throw new Error("Invalid encrypted credential format.");
+        }
+
+        const decipher = crypto.createDecipheriv("aes-256-gcm", getRestaurantPaymentEncryptionKey(), Buffer.from(ivValue, "base64"));
+        decipher.setAuthTag(Buffer.from(authTagValue, "base64"));
+        return Buffer.concat([decipher.update(Buffer.from(ciphertextValue, "base64")), decipher.final()]).toString("utf8");
+    } catch (error) {
+        logServerEvent("error", "Unable to decrypt restaurant Paystack credential.", { message: error.message });
+        return "";
+    }
 }
 
 function verifyConfiguredPassword(inputPassword, plainPassword, passwordHash) {
