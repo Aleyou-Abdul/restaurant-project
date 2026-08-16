@@ -177,15 +177,24 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function getOrderStatus(order) {
-        return String(order.status || "Paid");
+        const status = String(order.status || "Paid").trim().toLowerCase();
+        if (status === "paid") return "Pending";
+        if (status === "dispatched" || status === "out-for-delivery" || status === "out_for_delivery") return "Out For Delivery";
+        return status ? status.replace(/\b\w/g, (letter) => letter.toUpperCase()) : "Pending";
+    }
+
+    function getNextOrderAction(order) {
+        const nextActions = {
+            pending: { label: "Accept", status: "Accepted" },
+            accepted: { label: "Start Preparing", status: "Preparing" },
+            preparing: { label: "Out For Delivery", status: "Out For Delivery" },
+            "out for delivery": { label: "Delivered", status: "Delivered" }
+        };
+        return nextActions[getOrderStatus(order).toLowerCase()] || null;
     }
 
     function isPendingOrder(order) {
-        return getOrderStatus(order).toLowerCase() === "paid";
-    }
-
-    function isDispatchedOrder(order) {
-        return getOrderStatus(order).toLowerCase() === "dispatched";
+        return getOrderStatus(order).toLowerCase() === "pending";
     }
 
     function getFulfillmentLabel(order) {
@@ -641,10 +650,11 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function createStatusBadge(status) {
-        const normalizedStatus = String(status || "Paid").toLowerCase();
+        const normalizedStatus = String(status || "Paid").trim().toLowerCase();
         const badge = document.createElement("span");
-        badge.className = `receipt-badge ${normalizedStatus === "dispatched" ? "is-neutral" : "is-success"}`;
-        badge.textContent = status || "Paid";
+        const displayStatus = normalizedStatus === "paid" ? "Pending" : (normalizedStatus === "dispatched" ? "Out For Delivery" : (status || "Pending"));
+        badge.className = `receipt-badge is-${displayStatus.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+        badge.textContent = displayStatus;
         return badge;
     }
 
@@ -968,26 +978,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
         wrapper.appendChild(printBtn);
 
-        if (isPendingOrder(order)) {
-            const dispatchBtn = document.createElement("button");
-            dispatchBtn.type = "button";
-            dispatchBtn.className = "admin-action-btn admin-action-btn-primary";
-            dispatchBtn.textContent = "Dispatch";
-            dispatchBtn.addEventListener("click", async () => {
-                await updateOrderStatus(order.reference, "Dispatched");
+        const nextAction = getNextOrderAction(order);
+        if (nextAction) {
+            const statusBtn = document.createElement("button");
+            statusBtn.type = "button";
+            statusBtn.className = "admin-action-btn admin-action-btn-primary";
+            statusBtn.textContent = nextAction.label;
+            statusBtn.addEventListener("click", async () => {
+                await updateOrderStatus(order.reference, nextAction.status);
             });
-            wrapper.appendChild(dispatchBtn);
-        }
-
-        if (isDispatchedOrder(order)) {
-            const deliverBtn = document.createElement("button");
-            deliverBtn.type = "button";
-            deliverBtn.className = "admin-action-btn admin-action-btn-primary";
-            deliverBtn.textContent = "Delivered";
-            deliverBtn.addEventListener("click", async () => {
-                await updateOrderStatus(order.reference, "Delivered");
-            });
-            wrapper.appendChild(deliverBtn);
+            wrapper.appendChild(statusBtn);
         }
 
         return wrapper;

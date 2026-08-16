@@ -141,7 +141,7 @@ Staff can:
 
 - view incoming operational orders
 - print order receipts
-- dispatch and deliver orders
+- move orders through `Pending`, `Accepted`, `Preparing`, `Out For Delivery`, and `Delivered`
 - update item availability and remaining quantity
 
 Staff cannot:

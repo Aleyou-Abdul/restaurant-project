@@ -20,6 +20,7 @@ const uploadsDirPath = path.join(storageRootPath, "uploads");
 const defaultRestaurantId = "hungerstation-default";
 const defaultRestaurantSlug = "main";
 const defaultPlatformServiceFeeNaira = 100;
+const operationalOrderStatuses = ["Pending", "Accepted", "Preparing", "Out For Delivery", "Delivered"];
 
 fs.mkdirSync(storageRootPath, { recursive: true });
 
@@ -385,6 +386,10 @@ const server = http.createServer(async (req, res) => {
             restaurantId: requestRestaurantId
         }, requestRestaurantId);
 
+        if (updatedOrder && updatedOrder.error) {
+            return sendJson(res, 400, { ok: false, message: updatedOrder.error });
+        }
+
         if (!updatedOrder) {
             return sendJson(res, 404, {
                 ok: false,
@@ -442,6 +447,10 @@ const server = http.createServer(async (req, res) => {
             attendedBy: staffUser.displayName || staffUser.username,
             restaurantId: requestRestaurantId
         }, requestRestaurantId);
+
+        if (updatedOrder && updatedOrder.error) {
+            return sendJson(res, 400, { ok: false, message: updatedOrder.error });
+        }
 
         if (!updatedOrder) {
             return sendJson(res, 404, {
@@ -805,7 +814,7 @@ const server = http.createServer(async (req, res) => {
                     id: data.id || Date.now(),
                     reference: data.reference || reference,
                     date: new Date().toLocaleString(),
-                    status: "Paid",
+                    status: "Pending",
                     paymentStatus: "paid",
                     serviceFee: Number(paymentSettings.serviceFeeNaira || defaultPlatformServiceFeeNaira),
                     paymentChannel: data.channel || "",
@@ -2736,15 +2745,44 @@ async function updateOrderStatus(reference, status, extra = {}, restaurantId = d
         return null;
     }
 
+    const currentStatus = normalizeOperationalOrderStatus(orders[orderIndex].status);
+    const nextStatus = normalizeOperationalOrderStatus(status);
+
+    if (!nextStatus || !isAllowedOrderStatusTransition(currentStatus, nextStatus)) {
+        return {
+            error: `This order must move from ${currentStatus || "Pending"} to ${getNextOperationalOrderStatus(currentStatus) || "a valid next status"}.`
+        };
+    }
+
     orders[orderIndex] = {
         ...orders[orderIndex],
-        status,
+        status: nextStatus,
         attendedBy: extra.attendedBy || orders[orderIndex].attendedBy || "",
         statusUpdatedAt: new Date().toISOString()
     };
 
     await writeOrders(orders, orders[orderIndex].restaurantId || normalizedRestaurantId);
     return orders[orderIndex];
+}
+
+function normalizeOperationalOrderStatus(status) {
+    const normalizedStatus = String(status || "").trim().toLowerCase();
+
+    if (normalizedStatus === "paid") return "Pending";
+    if (normalizedStatus === "dispatched" || normalizedStatus === "out-for-delivery" || normalizedStatus === "out_for_delivery") {
+        return "Out For Delivery";
+    }
+
+    return operationalOrderStatuses.find((entry) => entry.toLowerCase() === normalizedStatus) || "";
+}
+
+function getNextOperationalOrderStatus(status) {
+    const currentIndex = operationalOrderStatuses.indexOf(normalizeOperationalOrderStatus(status));
+    return currentIndex >= 0 ? operationalOrderStatuses[currentIndex + 1] || "" : "";
+}
+
+function isAllowedOrderStatusTransition(currentStatus, nextStatus) {
+    return getNextOperationalOrderStatus(currentStatus) === nextStatus;
 }
 
 async function updateMenuItemStock(itemId, availability, stockQuantity, restaurantId = defaultRestaurantId) {
