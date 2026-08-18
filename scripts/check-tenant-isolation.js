@@ -97,6 +97,24 @@ async function main() {
         });
         assert.equal(adminALogin.status, 200, "Tenant A admin login should succeed.");
 
+        const tenantAMenuSave = await request(port, `/api/site-data?restaurantId=${encodeURIComponent(restaurantA.id)}`, {
+            method: "POST",
+            body: JSON.stringify({
+                site: { restaurantName: "Tenant A Kitchen" },
+                categories: ["Food"],
+                menuItems: [{
+                    id: "tenant-a-only-meal",
+                    name: "Tenant A Only Meal",
+                    price: 2500,
+                    image: "images/menu-placeholder.svg",
+                    category: "Food",
+                    availability: "available"
+                }],
+                deliveryZones: []
+            })
+        }, adminALogin.cookie);
+        assert.equal(tenantAMenuSave.status, 200, "Tenant A admin should be able to save its own menu.");
+
         const crossTenantOrders = await request(port, `/api/orders?restaurantId=${encodeURIComponent(restaurantB.id)}`, {}, adminALogin.cookie);
         assert.equal(crossTenantOrders.status, 401, "Tenant A admin must not read Tenant B orders.");
 
@@ -112,6 +130,12 @@ async function main() {
         const tenantBPublicData = await request(port, `/api/site-data?restaurantId=${encodeURIComponent(restaurantB.id)}`);
         assert.equal(tenantBPublicData.status, 200, "Approved restaurant menus remain publicly viewable.");
         assert.equal(tenantBPublicData.data.site.restaurantName, "Tenant B Kitchen", "Cross-tenant save must not alter Tenant B data.");
+        assert.deepEqual(tenantBPublicData.data.menuItems, [], "A new restaurant must not inherit demo menu items.");
+        assert.equal(
+            tenantBPublicData.data.menuItems.some((item) => item.name === "Tenant A Only Meal"),
+            false,
+            "Tenant A menu items must never appear in Tenant B."
+        );
 
         console.log("Tenant isolation check passed.");
     } finally {

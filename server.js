@@ -2349,7 +2349,9 @@ async function createPlatformRestaurant(input) {
     const restaurantId = `restaurant-${slug}-${crypto.randomBytes(3).toString("hex")}`;
     const now = new Date().toISOString();
     const platformSettings = await readPlatformSettings();
-    const siteData = defaultSiteData();
+    // A tenant must never inherit the demo restaurant's dishes or delivery zones.
+    // New restaurants start with an empty menu and configure their own data in Admin.
+    const siteData = createNewRestaurantSiteData();
     siteData.site = {
         ...siteData.site,
         restaurantName: name,
@@ -2913,6 +2915,16 @@ function defaultSiteData() {
                 stockQuantity: null
             }
         ],
+        deliveryZones: []
+    };
+}
+
+function createNewRestaurantSiteData() {
+    const siteData = defaultSiteData();
+
+    return {
+        ...siteData,
+        menuItems: [],
         deliveryZones: []
     };
 }
