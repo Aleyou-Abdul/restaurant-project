@@ -939,6 +939,8 @@ const server = http.createServer(async (req, res) => {
         const body = await readJsonBody(req);
         const normalizedData = normalizeSiteData(body);
         await saveSiteData(normalizedData, requestRestaurantId);
+        // Restaurant Admin owns the public profile details shown in the HungerStation directory.
+        await updateRestaurantPublicProfile(requestRestaurantId, normalizedData.site);
         logServerEvent("info", "Site data updated.", { ip: clientIp });
         return sendJson(res, 200, {
             ok: true,
@@ -2358,8 +2360,8 @@ async function createPlatformRestaurant(input) {
         phone: String(input.phone || "").trim(),
         email: String(input.email || "").trim(),
         location: String(input.address || "").trim(),
-        openingTime: normalizeTimeValue(input.openingTime || siteData.site.openingTime),
-        closingTime: normalizeTimeValue(input.closingTime || siteData.site.closingTime)
+        openingTime: siteData.site.openingTime,
+        closingTime: siteData.site.closingTime
     };
 
     await dbRun(
@@ -2413,6 +2415,29 @@ async function updatePlatformRestaurantStatus(restaurantId, requestedStatus) {
     );
 
     return (await readRestaurants()).find((restaurant) => restaurant.id === normalizedRestaurantId) || null;
+}
+
+async function updateRestaurantPublicProfile(restaurantId, site) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    const existing = await dbGet("SELECT id FROM restaurants WHERE id = ?", [normalizedRestaurantId]);
+
+    if (!existing) return;
+
+    await dbRun(
+        `UPDATE restaurants
+         SET name = ?, phone = ?, email = ?, address = ?, opening_time = ?, closing_time = ?, updated_at = ?
+         WHERE id = ?`,
+        [
+            String(site.restaurantName || "").trim(),
+            String(site.phone || "").trim(),
+            String(site.email || "").trim(),
+            String(site.location || "").trim(),
+            normalizeTimeValue(site.openingTime || ""),
+            normalizeTimeValue(site.closingTime || ""),
+            new Date().toISOString(),
+            normalizedRestaurantId
+        ]
+    );
 }
 
 async function deletePlatformRestaurant(restaurantId) {

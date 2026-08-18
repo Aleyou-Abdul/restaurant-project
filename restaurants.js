@@ -1,8 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
     const listEl = document.getElementById("restaurant-directory-list");
     const countEl = document.getElementById("restaurant-count");
-    const searchEl = document.getElementById("restaurant-search-input");
-    const foodSearchEl = document.getElementById("food-search-input");
+    const searchToggleEl = document.getElementById("platform-search-toggle");
+    const searchPanelEl = document.getElementById("platform-search-panel");
+    const searchEl = document.getElementById("platform-search-input");
     const foodListEl = document.getElementById("food-directory-list");
     const foodCountEl = document.getElementById("food-count");
     const foodCategoryFiltersEl = document.getElementById("food-category-filters");
@@ -88,7 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function renderFood() {
-        const query = foodSearchEl.value.trim().toLowerCase();
+        const query = searchEl.value.trim().toLowerCase();
         const matches = foodItems.filter((item) => {
             const matchesCategory = selectedFoodCategory === "All" || item.category === selectedFoodCategory;
             const matchesQuery = !query || `${item.name} ${item.category} ${item.restaurantName}`.toLowerCase().includes(query);
@@ -152,8 +153,23 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    searchEl.addEventListener("input", render);
-    foodSearchEl.addEventListener("input", renderFood);
+    // Keep search out of the way until a customer asks for it, especially on mobile.
+    searchToggleEl.addEventListener("click", () => {
+        const isOpening = searchPanelEl.hidden;
+        searchPanelEl.hidden = !isOpening;
+        searchToggleEl.setAttribute("aria-expanded", String(isOpening));
+        if (isOpening) searchEl.focus();
+    });
+    searchEl.addEventListener("input", () => {
+        render();
+        renderFood();
+    });
+    document.addEventListener("keydown", (event) => {
+        if (event.key !== "Escape" || searchPanelEl.hidden) return;
+        searchPanelEl.hidden = true;
+        searchToggleEl.setAttribute("aria-expanded", "false");
+        searchToggleEl.focus();
+    });
     foodCategoryFiltersEl.addEventListener("click", (event) => {
         const button = event.target.closest("button[data-category]");
         if (!button) return;

@@ -4,27 +4,26 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Restaurants | HungerStation</title>
-    <link rel="stylesheet" href="style.css?v=hungerstation-weekly-trending">
+    <link rel="stylesheet" href="style.css?v=hungerstation-compact-search">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="platform-customer-body">
     <header class="platform-customer-header">
         <a class="platform-customer-brand" href="restaurants.html">Hunger<span>Station</span></a>
-        <a class="platform-home-link" href="index.html">Current Restaurant</a>
+        <div class="platform-header-actions">
+            <a class="platform-home-link" href="index.html">Current Restaurant</a>
+            <button id="platform-search-toggle" class="platform-search-toggle" type="button" aria-label="Search HungerStation" aria-expanded="false" aria-controls="platform-search-panel">&#128269;</button>
+        </div>
     </header>
     <main>
+        <section id="platform-search-panel" class="platform-search-panel" hidden>
+            <label for="platform-search-input">Search HungerStation</label>
+            <input id="platform-search-input" type="search" placeholder="Search restaurants, food, or area" autocomplete="off">
+        </section>
         <section class="restaurant-directory-hero">
             <p class="directory-kicker">Order from restaurants you trust</p>
             <h1>Find your next meal.</h1>
             <p>Browse approved HungerStation restaurants, view their menus, and order directly.</p>
-            <label class="restaurant-search" for="restaurant-search-input">
-                <span>Search restaurants</span>
-                <input id="restaurant-search-input" type="search" placeholder="Search by name, address, or area">
-            </label>
-            <label class="restaurant-search" for="food-search-input">
-                <span>Or search food across HungerStation</span>
-                <input id="food-search-input" type="search" placeholder="Search jollof rice, shawarma, burger...">
-            </label>
         </section>
         <section class="restaurant-directory-section trending-directory-section">
             <div class="directory-heading"><div><p class="directory-kicker">🔥 Trending This Week</p><h2>What customers are ordering</h2></div><span id="trending-count"></span></div>
@@ -40,6 +39,6 @@
             <div id="restaurant-directory-list" class="restaurant-directory-grid" aria-live="polite"></div>
         </section>
     </main>
-    <script src="restaurants.js?v=hungerstation-weekly-trending"></script>
+    <script src="restaurants.js?v=hungerstation-compact-search"></script>
 </body>
 </html>

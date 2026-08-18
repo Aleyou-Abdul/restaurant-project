@@ -100,7 +100,7 @@ async function main() {
         const tenantAMenuSave = await request(port, `/api/site-data?restaurantId=${encodeURIComponent(restaurantA.id)}`, {
             method: "POST",
             body: JSON.stringify({
-                site: { restaurantName: "Tenant A Kitchen" },
+                site: { restaurantName: "Tenant A Kitchen", openingTime: "10:30", closingTime: "23:00" },
                 categories: ["Food"],
                 menuItems: [{
                     id: "tenant-a-only-meal",
@@ -136,6 +136,11 @@ async function main() {
             false,
             "Tenant A menu items must never appear in Tenant B."
         );
+
+        const publicRestaurants = await request(port, "/api/restaurants");
+        const publicRestaurantA = publicRestaurants.data.restaurants.find((restaurant) => restaurant.id === restaurantA.id);
+        assert.equal(publicRestaurantA.openingTime, "10:30", "Restaurant Admin opening time should update its public listing.");
+        assert.equal(publicRestaurantA.closingTime, "23:00", "Restaurant Admin closing time should update its public listing.");
 
         console.log("Tenant isolation check passed.");
     } finally {
