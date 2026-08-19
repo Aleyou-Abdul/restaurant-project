@@ -100,7 +100,12 @@ async function main() {
         const tenantAMenuSave = await request(port, `/api/site-data?restaurantId=${encodeURIComponent(restaurantA.id)}`, {
             method: "POST",
             body: JSON.stringify({
-                site: { restaurantName: "Tenant A Kitchen", openingTime: "10:30", closingTime: "23:00" },
+                site: {
+                    restaurantName: "Tenant A Kitchen",
+                    logoPath: "images/tenant-a-logo.png",
+                    openingTime: "10:30",
+                    closingTime: "23:00"
+                },
                 categories: ["Food"],
                 menuItems: [{
                     id: "tenant-a-only-meal",
@@ -141,6 +146,7 @@ async function main() {
         const publicRestaurantA = publicRestaurants.data.restaurants.find((restaurant) => restaurant.id === restaurantA.id);
         assert.equal(publicRestaurantA.openingTime, "10:30", "Restaurant Admin opening time should update its public listing.");
         assert.equal(publicRestaurantA.closingTime, "23:00", "Restaurant Admin closing time should update its public listing.");
+        assert.equal(publicRestaurantA.logoPath, "images/tenant-a-logo.png", "Restaurant Admin logo should update its public listing.");
 
         console.log("Tenant isolation check passed.");
     } finally {

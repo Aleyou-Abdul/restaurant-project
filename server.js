@@ -2425,10 +2425,11 @@ async function updateRestaurantPublicProfile(restaurantId, site) {
 
     await dbRun(
         `UPDATE restaurants
-         SET name = ?, phone = ?, email = ?, address = ?, opening_time = ?, closing_time = ?, updated_at = ?
+         SET name = ?, logo_path = ?, phone = ?, email = ?, address = ?, opening_time = ?, closing_time = ?, updated_at = ?
          WHERE id = ?`,
         [
             String(site.restaurantName || "").trim(),
+            normalizeAssetPath(site.logoPath || ""),
             String(site.phone || "").trim(),
             String(site.email || "").trim(),
             String(site.location || "").trim(),
