@@ -195,6 +195,12 @@ nav a:hover {
     box-shadow: var(--shadow-strong);
 }
 
+.meal.is-menu-item-target {
+    outline: 3px solid #f59e0b;
+    outline-offset: 4px;
+    box-shadow: 0 0 0 7px rgba(245, 158, 11, 0.2), var(--shadow-strong);
+}
+
 .meal img {
     width: 100%;
     height: 170px;

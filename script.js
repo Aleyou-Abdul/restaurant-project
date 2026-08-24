@@ -405,6 +405,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     ? `<span class="meal-stock-badge is-available">${escapeHtml(`${item.stockQuantity} left`)}</span>`
                     : '<span class="meal-stock-badge is-available">Available</span>';
         card.className = "meal fade-in";
+        card.dataset.menuItemId = String(item.id || "");
         card.innerHTML = `
             <div class="meal-media">
                 <img src="${escapeHtml(getSafeImageSrc(item.image))}" alt="${escapeHtml(item.name)}">
@@ -466,6 +467,28 @@ document.addEventListener("DOMContentLoaded", () => {
             getFilteredMenuItems(),
             "No meals available in this category right now."
         );
+        revealRequestedMenuItem();
+    }
+
+    function getRequestedMenuItemId() {
+        const query = new URLSearchParams(window.location.search);
+        return String(query.get("itemId") || query.get("item") || "").trim();
+    }
+
+    function revealRequestedMenuItem() {
+        const itemId = getRequestedMenuItemId();
+        if (!itemId) return;
+
+        const targetCard = [...menuItemsEl.querySelectorAll("[data-menu-item-id]")]
+            .find((card) => card.dataset.menuItemId === itemId);
+        if (!targetCard) return;
+
+        // Wait for the menu layout to settle so the selected meal lands in view reliably on phones.
+        window.requestAnimationFrame(() => {
+            targetCard.scrollIntoView({ behavior: "smooth", block: "center" });
+            targetCard.classList.add("is-menu-item-target");
+            window.setTimeout(() => targetCard.classList.remove("is-menu-item-target"), 2600);
+        });
     }
 
     function renderTrendingItems(items) {
@@ -505,6 +528,12 @@ document.addEventListener("DOMContentLoaded", () => {
             categories: data.categories || [],
             menuItems: data.menuItems || []
         };
+
+        const requestedItemId = getRequestedMenuItemId();
+        const requestedItem = siteDataCache.menuItems.find((item) => String(item.id) === requestedItemId);
+        if (requestedItem && requestedItem.category) {
+            selectedCategory = requestedItem.category;
+        }
 
         document.title = `${site.restaurantName || "My Restaurant"} | Order Online`;
         orderWindowState = getOrderingWindowState(site);

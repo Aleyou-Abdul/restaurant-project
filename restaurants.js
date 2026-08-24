@@ -81,6 +81,12 @@ document.addEventListener("DOMContentLoaded", () => {
         return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(Number(value || 0));
     }
 
+    function getItemMenuLink(item) {
+        const restaurantId = encodeURIComponent(item.restaurantId);
+        const itemId = encodeURIComponent(item.id || item.name);
+        return `index.html?restaurantId=${restaurantId}&itemId=${itemId}#menu`;
+    }
+
     function renderFoodCategories() {
         const categories = ["All", ...foodCategories];
         foodCategoryFiltersEl.innerHTML = categories.map((category) => (
@@ -103,7 +109,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <span>${escapeHtml(item.restaurantName)}</span>
                     <h3>${escapeHtml(item.name)}</h3>
                     <p>${escapeHtml(item.category)} · Ready in about ${Number(item.preparationMinutes || 25)} mins</p>
-                    <div class="food-directory-card-footer"><strong>${formatPrice(item.price)}</strong><a href="index.html?restaurantId=${encodeURIComponent(item.restaurantId)}#menu">Order Now</a></div>
+                    <div class="food-directory-card-footer"><strong>${formatPrice(item.price)}</strong><a href="${getItemMenuLink(item)}">Order Now</a></div>
                 </div>
             </article>`).join("") || '<p class="directory-empty">No meals match that search yet.</p>';
     }
@@ -117,7 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <span>${escapeHtml(item.restaurantName)}</span>
                     <h3>${escapeHtml(item.name)}</h3>
                     <p>${Number(item.orderCount)} order${Number(item.orderCount) === 1 ? "" : "s"} this week · ${escapeHtml(item.category)}</p>
-                    <div class="food-directory-card-footer"><strong>${formatPrice(item.price)}</strong><a href="index.html?restaurantId=${encodeURIComponent(item.restaurantId)}#menu">Order Now</a></div>
+                    <div class="food-directory-card-footer"><strong>${formatPrice(item.price)}</strong><a href="${getItemMenuLink(item)}">Order Now</a></div>
                 </div>
             </article>`).join("") || '<p class="directory-empty">Trending meals will appear here after customers place orders this week.</p>';
     }
