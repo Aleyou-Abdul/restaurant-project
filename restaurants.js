@@ -9,6 +9,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const foodCategoryFiltersEl = document.getElementById("food-category-filters");
     const platformTrendingListEl = document.getElementById("platform-trending-list");
     const trendingCountEl = document.getElementById("trending-count");
+    const directoryBusinessType = document.body.dataset.directoryType === "home-vendor" ? "home-vendor" : "restaurant";
+    const isVendorDirectory = directoryBusinessType === "home-vendor";
     let restaurants = [];
     let foodItems = [];
     let foodCategories = [];
@@ -64,10 +66,15 @@ document.addEventListener("DOMContentLoaded", () => {
         return businessType === "home-vendor" ? "Home Food Vendor" : "Restaurant";
     }
 
+    function getBusinessNoun(count) {
+        const noun = isVendorDirectory ? "vendor" : "restaurant";
+        return `${count} ${noun}${count === 1 ? "" : "s"}`;
+    }
+
     function render() {
         const query = searchEl.value.trim().toLowerCase();
         const matches = restaurants.filter((restaurant) => `${restaurant.name} ${restaurant.address}`.toLowerCase().includes(query));
-        countEl.textContent = `${matches.length} restaurant${matches.length === 1 ? "" : "s"}`;
+        countEl.textContent = getBusinessNoun(matches.length);
         listEl.innerHTML = matches.map((restaurant) => `
             <article class="restaurant-directory-card">
                 <div class="restaurant-card-logo"><img src="${escapeHtml(imageSource(restaurant.logoPath))}" alt="${escapeHtml(restaurant.name)} logo"></div>
@@ -76,9 +83,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     <h2>${escapeHtml(restaurant.name)}</h2>
                     <p>${escapeHtml(restaurant.address || "Address coming soon")}</p>
                     <dl><div><dt>Opening hours</dt><dd>${escapeHtml(formatHours(restaurant))}</dd></div><div><dt>Rating</dt><dd>New on HungerStation</dd></div></dl>
-                    <a href="index.html?restaurantId=${encodeURIComponent(restaurant.id)}">View Menu</a>
+                    <a href="index.html?restaurantId=${encodeURIComponent(restaurant.id)}">${isVendorDirectory ? "See Offers" : "View Menu"}</a>
                 </div>
-            </article>`).join("") || '<p class="directory-empty">No restaurant matches that search yet.</p>';
+            </article>`).join("") || `<p class="directory-empty">No ${isVendorDirectory ? "home food vendor" : "restaurant"} matches that search yet.</p>`;
     }
 
     function formatPrice(value) {
@@ -135,7 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadRestaurants() {
         try {
             const data = await fetchPublicApi("/api/restaurants");
-            restaurants = data.restaurants || [];
+            restaurants = (data.restaurants || []).filter((restaurant) => restaurant.businessType === directoryBusinessType);
             render();
         } catch (error) {
             listEl.innerHTML = `<p class="directory-empty">${escapeHtml(error.message)}</p>`;
@@ -145,7 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadFood() {
         try {
             const data = await fetchPublicApi("/api/food-search");
-            foodItems = data.items || [];
+            foodItems = (data.items || []).filter((item) => item.businessType === directoryBusinessType);
             foodCategories = data.categories || [];
             renderFoodCategories();
             renderFood();
@@ -157,7 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
     async function loadPlatformTrending() {
         try {
             const data = await fetchPublicApi("/api/platform/trending-items");
-            renderPlatformTrending(data.items || []);
+            renderPlatformTrending((data.items || []).filter((item) => item.businessType === directoryBusinessType));
         } catch (error) {
             platformTrendingListEl.innerHTML = `<p class="directory-empty">${escapeHtml(error.message)}</p>`;
         }

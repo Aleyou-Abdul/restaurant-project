@@ -297,10 +297,12 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === "GET" && requestUrl.pathname === "/api/admin/session") {
         const isAuthenticated = isAdminAuthenticated(req, requestRestaurantId);
+        const restaurant = await getRestaurantById(requestRestaurantId);
         return sendJson(res, 200, {
             ok: true,
             isAuthenticated,
-            hasAdminCredentials: await hasRestaurantAdminCredentials(requestRestaurantId)
+            hasAdminCredentials: await hasRestaurantAdminCredentials(requestRestaurantId),
+            businessType: restaurant ? restaurant.businessType : "restaurant"
         });
     }
 
@@ -680,10 +682,12 @@ const server = http.createServer(async (req, res) => {
             expiresAt: Date.now() + sessionTtlMs
         });
         logServerEvent("info", "Admin login successful.", { ip: clientIp, username });
+        const restaurant = await getRestaurantById(loginRestaurantId);
 
         return sendJson(res, 200, {
             ok: true,
-            message: "Login successful."
+            message: "Login successful.",
+            businessType: restaurant ? restaurant.businessType : "restaurant"
         }, [
             createCookie("admin_session", sessionToken, {
                 httpOnly: true,

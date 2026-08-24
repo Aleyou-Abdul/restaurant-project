@@ -56,6 +56,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function getDashboardPath(businessType) {
+        return businessType === "home-vendor" ? "vendor-admin.html" : "admin.html";
+    }
+
     async function checkSession() {
         try {
             const data = await fetchJson("/api/admin/session");
@@ -68,7 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (data.isAuthenticated) {
                 setRestaurantContextId(getRestaurantContextId());
-                window.location.href = withRestaurantContext("admin.html");
+                window.location.href = withRestaurantContext(getDashboardPath(data.businessType));
             }
         } catch (error) {
             setStatus(error.message, "error");
@@ -79,7 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             setStatus("Signing in...", "info");
 
-            await fetchJson("/api/admin/login", {
+            const loginData = await fetchJson("/api/admin/login", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
@@ -93,7 +97,7 @@ document.addEventListener("DOMContentLoaded", () => {
             adminPasswordEl.value = "";
             setStatus("Login successful. Redirecting...", "success");
             setRestaurantContextId(getRestaurantContextId());
-            window.location.href = withRestaurantContext("admin.html");
+            window.location.href = withRestaurantContext(getDashboardPath(loginData.businessType));
         } catch (error) {
             setStatus(error.message, "error");
         }

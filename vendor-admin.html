@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendor Studio | HungerStation</title>
+    <link rel="stylesheet" href="style.css?v=hungerstation-vendor-studio">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="vendor-admin-body">
+    <main class="vendor-studio" hidden id="vendor-studio">
+        <header class="vendor-studio-header">
+            <div><p>HungerStation Home Food Vendor</p><h1 id="vendor-page-title">Vendor Studio</h1></div>
+            <div><a id="vendor-storefront-link" href="index.html">View storefront</a><button id="vendor-logout-btn" type="button">Log Out</button></div>
+        </header>
+        <p id="vendor-status" class="payment-status info">Loading your vendor studio...</p>
+
+        <section class="vendor-overview">
+            <article><span>Live offers</span><strong id="vendor-offer-count">0</strong></article>
+            <article><span>Orders received</span><strong id="vendor-order-count">0</strong></article>
+            <article><span>Paid sales</span><strong id="vendor-sales-total">₦0</strong></article>
+        </section>
+
+        <div class="vendor-studio-grid">
+            <section class="vendor-panel">
+                <div class="vendor-panel-heading"><div><p>Storefront</p><h2>Your vendor profile</h2></div></div>
+                <form id="vendor-profile-form" class="vendor-form-grid">
+                    <label>Business name<input id="vendor-name" required></label>
+                    <label>Phone number<input id="vendor-phone" type="tel"></label>
+                    <label>Email<input id="vendor-email" type="email"></label>
+                    <label>Area / address<input id="vendor-location"></label>
+                    <label>Opening time<input id="vendor-opening-time" type="time"></label>
+                    <label>Closing time<input id="vendor-closing-time" type="time"></label>
+                    <label class="vendor-form-wide">Logo image path or URL<input id="vendor-logo-path" placeholder="images/logo.png or https://..."></label>
+                    <div class="vendor-form-wide"><button type="submit">Save Vendor Profile</button></div>
+                </form>
+            </section>
+
+            <section class="vendor-panel">
+                <div class="vendor-panel-heading"><div><p>Add an offer</p><h2>Today&apos;s food</h2></div></div>
+                <form id="vendor-offer-form" class="vendor-form-grid">
+                    <label>Food name<input id="vendor-offer-name" required placeholder="e.g. Fura da nono"></label>
+                    <label>Price (₦)<input id="vendor-offer-price" type="number" min="1" required></label>
+                    <label>Category<input id="vendor-offer-category" required placeholder="e.g. Drinks"></label>
+                    <label class="vendor-form-wide">Food image path or URL<input id="vendor-offer-image" required placeholder="images/fura.png or https://..."></label>
+                    <div class="vendor-form-wide"><button type="submit">Publish Offer</button></div>
+                </form>
+            </section>
+        </div>
+
+        <section class="vendor-panel">
+            <div class="vendor-panel-heading"><div><p>Your offers</p><h2>Manage food listings</h2></div></div>
+            <div id="vendor-offer-list" class="vendor-offer-list"></div>
+        </section>
+
+        <section class="vendor-panel">
+            <div class="vendor-panel-heading"><div><p>Orders</p><h2>Recent customer orders</h2></div><button id="vendor-refresh-btn" type="button">Refresh</button></div>
+            <div id="vendor-order-list" class="vendor-order-list"></div>
+        </section>
+    </main>
+    <script src="vendor-admin.js?v=hungerstation-vendor-studio"></script>
+</body>
+</html>

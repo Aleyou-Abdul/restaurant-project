@@ -92,6 +92,16 @@ async function main() {
         const restaurantB = await createRestaurant("Tenant B Kitchen", "tenant-b-admin", "home-vendor");
         assert.equal(restaurantB.businessType, "home-vendor", "Home Food Vendor type should be saved during onboarding.");
 
+        const vendorAdminLogin = await request(port, `/api/admin/login?restaurantId=${encodeURIComponent(restaurantB.id)}`, {
+            method: "POST",
+            body: JSON.stringify({ username: "tenant-b-admin", password: "restaurant-password", restaurantId: restaurantB.id })
+        });
+        assert.equal(vendorAdminLogin.status, 200, "Home Food Vendor admin login should succeed.");
+        assert.equal(vendorAdminLogin.data.businessType, "home-vendor", "Vendor login should identify the vendor workspace.");
+
+        const vendorAdminSession = await request(port, `/api/admin/session?restaurantId=${encodeURIComponent(restaurantB.id)}`, {}, vendorAdminLogin.cookie);
+        assert.equal(vendorAdminSession.data.businessType, "home-vendor", "Vendor session should retain the vendor workspace type.");
+
         const adminALogin = await request(port, `/api/admin/login?restaurantId=${encodeURIComponent(restaurantA.id)}`, {
             method: "POST",
             body: JSON.stringify({ username: "tenant-a-admin", password: "restaurant-password", restaurantId: restaurantA.id })

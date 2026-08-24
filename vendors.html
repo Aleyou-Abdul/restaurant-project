@@ -3,39 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Restaurants | HungerStation</title>
+    <title>Home Food Vendors | HungerStation</title>
     <link rel="stylesheet" href="style.css?v=hungerstation-separate-vendors">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
-<body class="platform-customer-body" data-directory-type="restaurant">
+<body class="platform-customer-body" data-directory-type="home-vendor">
     <header class="platform-customer-header">
         <a class="platform-customer-brand" href="restaurants.html">Hunger<span>Station</span></a>
         <div class="platform-header-actions">
-            <a class="platform-home-link" href="vendors.html">Home Food Vendors</a>
-            <a class="platform-home-link" href="index.html">Current Restaurant</a>
-            <button id="platform-search-toggle" class="platform-search-toggle" type="button" aria-label="Search HungerStation" aria-expanded="false" aria-controls="platform-search-panel">&#128269;</button>
+            <a class="platform-home-link" href="restaurants.html">Restaurants</a>
+            <button id="platform-search-toggle" class="platform-search-toggle" type="button" aria-label="Search home food vendors" aria-expanded="false" aria-controls="platform-search-panel">&#128269;</button>
         </div>
     </header>
     <main>
         <section id="platform-search-panel" class="platform-search-panel" hidden>
-            <label for="platform-search-input">Search HungerStation</label>
-            <input id="platform-search-input" type="search" placeholder="Search restaurants, food, or area" autocomplete="off">
+            <label for="platform-search-input">Search Home Food Vendors</label>
+            <input id="platform-search-input" type="search" placeholder="Search vendors, food, or area" autocomplete="off">
         </section>
-        <section class="restaurant-directory-hero">
-            <p class="directory-kicker">Order from restaurants you trust</p>
-            <h1>Find your next meal.</h1>
-            <p>Browse approved HungerStation restaurants, view their menus, and order directly.</p>
+        <section class="restaurant-directory-hero vendor-directory-hero">
+            <p class="directory-kicker">Fresh local makers</p>
+            <h1>Find today&apos;s special.</h1>
+            <p>Discover home-made meals, snacks, fura da nono, shawarma, and pre-order food from trusted local vendors.</p>
         </section>
         <section class="restaurant-directory-section trending-directory-section">
-            <div class="directory-heading"><div><p class="directory-kicker">🔥 Trending This Week</p><h2>What customers are ordering</h2></div><span id="trending-count"></span></div>
+            <div class="directory-heading"><div><p class="directory-kicker">🔥 Trending This Week</p><h2>Popular vendor meals</h2></div><span id="trending-count"></span></div>
             <div id="platform-trending-list" class="food-directory-grid" aria-live="polite"></div>
         </section>
         <section class="restaurant-directory-section restaurant-directory-priority">
-            <div class="directory-heading"><div><p class="directory-kicker">Available now</p><h2>Explore Restaurants</h2></div><span id="restaurant-count"></span></div>
+            <div class="directory-heading"><div><p class="directory-kicker">Home Food Vendors</p><h2>Explore local vendors</h2></div><span id="restaurant-count"></span></div>
             <div id="restaurant-directory-list" class="restaurant-directory-grid" aria-live="polite"></div>
         </section>
         <section id="food-search" class="restaurant-directory-section food-directory-section">
-            <div class="directory-heading"><div><p class="directory-kicker">Discover food</p><h2>Meals across HungerStation</h2></div><span id="food-count"></span></div>
+            <div class="directory-heading"><div><p class="directory-kicker">Discover food</p><h2>Vendor meals and snacks</h2></div><span id="food-count"></span></div>
             <div id="food-category-filters" class="directory-category-filters"></div>
             <div id="food-directory-list" class="food-directory-grid" aria-live="polite"></div>
         </section>
