@@ -40,7 +40,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function isLive(item) {
-        return item.availability !== "hidden" && item.availability !== "out-of-stock";
+        const deadline = item.orderDeadline ? new Date(item.orderDeadline).getTime() : NaN;
+        return item.availability !== "hidden" && item.availability !== "out-of-stock" && (!Number.isFinite(deadline) || deadline > Date.now());
+    }
+
+    function formatSchedule(value) {
+        if (!value) return "No schedule set";
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "No schedule set";
+        return new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short", hour12: true }).format(date);
     }
 
     function populateProfile() {
@@ -62,7 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
         offerListEl.innerHTML = items.map((item) => `
             <article class="vendor-offer-row">
                 <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.name)}">
-                <div><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.category)} · ${formatMoney(item.price)}</span></div>
+                <div><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.category)} · ${formatMoney(item.price)}</span><span>Available: ${escapeHtml(formatSchedule(item.availableFrom))}</span><span>Pre-order closes: ${escapeHtml(formatSchedule(item.orderDeadline))}</span></div>
                 <select data-availability="${escapeHtml(item.id)}"><option value="available" ${item.availability === "available" ? "selected" : ""}>Available</option><option value="out-of-stock" ${item.availability === "out-of-stock" ? "selected" : ""}>Sold out</option><option value="hidden" ${item.availability === "hidden" ? "selected" : ""}>Hidden</option></select>
                 <button data-delete-offer="${escapeHtml(item.id)}" type="button">Remove</button>
             </article>`).join("") || '<p class="vendor-empty">Add your first food offer above.</p>';
@@ -113,9 +121,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const price = Number(document.getElementById("vendor-offer-price").value);
         const category = document.getElementById("vendor-offer-category").value.trim();
         const image = document.getElementById("vendor-offer-image").value.trim();
+        const availableFrom = document.getElementById("vendor-offer-available-from").value;
+        const orderDeadline = document.getElementById("vendor-offer-deadline").value;
         const id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}-${Date.now()}`;
         siteData.categories = [...new Set([...(siteData.categories || []), category])];
-        siteData.menuItems = [...(siteData.menuItems || []), { id, name, price, category, image, availability: "available", stockQuantity: null }];
+        siteData.menuItems = [...(siteData.menuItems || []), { id, name, price, category, image, availability: "available", stockQuantity: null, availableFrom, orderDeadline }];
         try { await saveSiteData("Food offer published."); event.currentTarget.reset(); renderOffers(); } catch (error) { setStatus(error.message, "error"); }
     });
 

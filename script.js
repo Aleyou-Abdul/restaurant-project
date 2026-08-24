@@ -404,6 +404,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 : item.stockQuantity !== null && item.stockQuantity !== undefined
                     ? `<span class="meal-stock-badge is-available">${escapeHtml(`${item.stockQuantity} left`)}</span>`
                     : '<span class="meal-stock-badge is-available">Available</span>';
+        const scheduleMessage = getOfferScheduleMessage(item);
         card.className = "meal fade-in";
         card.dataset.menuItemId = String(item.id || "");
         card.innerHTML = `
@@ -417,7 +418,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     ${stockBadge}
                 </div>
                 <h3>${escapeHtml(item.name)}</h3>
-                <p>Freshly prepared and ready for quick delivery.</p>
+                <p>${escapeHtml(scheduleMessage || "Freshly prepared and ready for quick delivery.")}</p>
                 <div class="meal-actions">
                     <button class="add-to-cart" type="button" ${orderWindowState.canOrder && !isUnavailable ? "" : "disabled"}>${escapeHtml(buttonLabel)}</button>
                     <a href="cart.html">View Cart</a>
@@ -452,13 +453,33 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function getFilteredMenuItems() {
-        const menuItems = (siteDataCache.menuItems || []).filter((item) => item.availability !== "hidden");
+        const menuItems = (siteDataCache.menuItems || []).filter((item) => item.availability !== "hidden" && !hasPreorderClosed(item));
 
         if (selectedCategory === "All") {
             return menuItems;
         }
 
         return menuItems.filter((item) => item.category === selectedCategory);
+    }
+
+    // Home vendors can sell for a future date; the deadline is the only time that removes an offer from ordering.
+    function hasPreorderClosed(item) {
+        if (!item || !item.orderDeadline) return false;
+        const deadline = new Date(item.orderDeadline).getTime();
+        return Number.isFinite(deadline) && deadline <= Date.now();
+    }
+
+    function getOfferScheduleMessage(item) {
+        const format = (value) => new Intl.DateTimeFormat("en-NG", {
+            dateStyle: "medium",
+            timeStyle: "short",
+            hour12: true
+        }).format(new Date(value));
+        const deadline = item && item.orderDeadline ? new Date(item.orderDeadline).getTime() : NaN;
+        if (Number.isFinite(deadline) && deadline > Date.now()) return `Pre-order closes ${format(item.orderDeadline)}.`;
+        const availableFrom = item && item.availableFrom ? new Date(item.availableFrom).getTime() : NaN;
+        if (Number.isFinite(availableFrom) && availableFrom > Date.now()) return `Available ${format(item.availableFrom)}. Pre-order now.`;
+        return "";
     }
 
     function renderMenuItems() {

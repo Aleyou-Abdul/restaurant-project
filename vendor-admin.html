@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vendor Studio | HungerStation</title>
-    <link rel="stylesheet" href="style.css?v=hungerstation-vendor-studio">
+    <link rel="stylesheet" href="style.css?v=hungerstation-vendor-preorders">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="vendor-admin-body">
@@ -42,6 +42,8 @@
                     <label>Food name<input id="vendor-offer-name" required placeholder="e.g. Fura da nono"></label>
                     <label>Price (₦)<input id="vendor-offer-price" type="number" min="1" required></label>
                     <label>Category<input id="vendor-offer-category" required placeholder="e.g. Drinks"></label>
+                    <label>Available from<input id="vendor-offer-available-from" type="datetime-local"></label>
+                    <label>Pre-order closes<input id="vendor-offer-deadline" type="datetime-local"></label>
                     <label class="vendor-form-wide">Food image path or URL<input id="vendor-offer-image" required placeholder="images/fura.png or https://..."></label>
                     <div class="vendor-form-wide"><button type="submit">Publish Offer</button></div>
                 </form>
@@ -58,6 +60,6 @@
             <div id="vendor-order-list" class="vendor-order-list"></div>
         </section>
     </main>
-    <script src="vendor-admin.js?v=hungerstation-vendor-studio"></script>
+    <script src="vendor-admin.js?v=hungerstation-vendor-preorders"></script>
 </body>
 </html>

@@ -98,6 +98,15 @@ document.addEventListener("DOMContentLoaded", () => {
         return `index.html?restaurantId=${restaurantId}&itemId=${itemId}#menu`;
     }
 
+    function getOfferScheduleLabel(item) {
+        const availableFrom = item.availableFrom ? new Date(item.availableFrom) : null;
+        const deadline = item.orderDeadline ? new Date(item.orderDeadline) : null;
+        const format = (date) => new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short", hour12: true }).format(date);
+        if (deadline && deadline.getTime() > Date.now()) return `Pre-order closes ${format(deadline)}`;
+        if (availableFrom && availableFrom.getTime() > Date.now()) return `Available ${format(availableFrom)}`;
+        return "";
+    }
+
     function renderFoodCategories() {
         const categories = ["All", ...foodCategories];
         foodCategoryFiltersEl.innerHTML = categories.map((category) => (
@@ -119,7 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div>
                     <span>${escapeHtml(item.restaurantName)} <em class="business-type-inline${item.businessType === "home-vendor" ? " is-vendor" : ""}">${escapeHtml(getBusinessTypeLabel(item.businessType))}</em></span>
                     <h3>${escapeHtml(item.name)}</h3>
-                    <p>${escapeHtml(item.category)} · Ready in about ${Number(item.preparationMinutes || 25)} mins</p>
+                    <p>${escapeHtml(item.category)} · Ready in about ${Number(item.preparationMinutes || 25)} mins${getOfferScheduleLabel(item) ? ` · ${escapeHtml(getOfferScheduleLabel(item))}` : ""}</p>
                     <div class="food-directory-card-footer"><strong>${formatPrice(item.price)}</strong><a href="${getItemMenuLink(item)}">Order Now</a></div>
                 </div>
             </article>`).join("") || '<p class="directory-empty">No meals match that search yet.</p>';
@@ -133,7 +142,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div>
                     <span>${escapeHtml(item.restaurantName)} <em class="business-type-inline${item.businessType === "home-vendor" ? " is-vendor" : ""}">${escapeHtml(getBusinessTypeLabel(item.businessType))}</em></span>
                     <h3>${escapeHtml(item.name)}</h3>
-                    <p>${Number(item.orderCount)} order${Number(item.orderCount) === 1 ? "" : "s"} this week · ${escapeHtml(item.category)}</p>
+                    <p>${Number(item.orderCount)} order${Number(item.orderCount) === 1 ? "" : "s"} this week · ${escapeHtml(item.category)}${getOfferScheduleLabel(item) ? ` · ${escapeHtml(getOfferScheduleLabel(item))}` : ""}</p>
                     <div class="food-directory-card-footer"><strong>${formatPrice(item.price)}</strong><a href="${getItemMenuLink(item)}">Order Now</a></div>
                 </div>
             </article>`).join("") || '<p class="directory-empty">Trending meals will appear here after customers place orders this week.</p>';

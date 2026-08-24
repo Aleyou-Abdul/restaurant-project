@@ -165,7 +165,7 @@ const server = http.createServer(async (req, res) => {
         const foodGroups = await Promise.all(restaurants.map(async (restaurant) => {
             const siteData = await readSiteData(restaurant.id);
             return (siteData.menuItems || [])
-                .filter((item) => item && !["hidden", "out-of-stock"].includes(item.availability))
+                .filter((item) => item && isMenuItemOrderable(item, restaurant.businessType))
                 .map((item) => ({
                     id: item.id,
                     name: item.name,
@@ -173,6 +173,8 @@ const server = http.createServer(async (req, res) => {
                     price: Number(item.price || 0),
                     category: item.category || "Food",
                     preparationMinutes: Number(item.preparationMinutes || 25),
+                    availableFrom: item.availableFrom || "",
+                    orderDeadline: item.orderDeadline || "",
                     restaurantId: restaurant.id,
                     restaurantName: restaurant.name,
                     restaurantSlug: restaurant.slug,
@@ -215,7 +217,7 @@ const server = http.createServer(async (req, res) => {
                 });
 
             return (siteData.menuItems || [])
-                .filter((item) => item && !["hidden", "out-of-stock"].includes(item.availability))
+                .filter((item) => item && isMenuItemOrderable(item, restaurant.businessType))
                 .map((item) => ({
                     id: item.id,
                     name: item.name,
@@ -223,6 +225,8 @@ const server = http.createServer(async (req, res) => {
                     price: Number(item.price || 0),
                     category: item.category || "Food",
                     preparationMinutes: Number(item.preparationMinutes || 25),
+                    availableFrom: item.availableFrom || "",
+                    orderDeadline: item.orderDeadline || "",
                     restaurantId: restaurant.id,
                     restaurantName: restaurant.name,
                     businessType: restaurant.businessType,
@@ -3422,8 +3426,33 @@ function normalizeMenuItem(item, fallbackCategory) {
         category: String(item.category || fallbackCategory).trim() || fallbackCategory,
         preparationMinutes: Number.isFinite(preparationTime) ? Math.min(180, Math.max(5, Math.round(preparationTime))) : 25,
         availability,
-        stockQuantity: normalizedQuantity
+        stockQuantity: normalizedQuantity,
+        availableFrom: normalizeScheduleDateTime(item.availableFrom),
+        orderDeadline: normalizeScheduleDateTime(item.orderDeadline)
     };
+}
+
+function normalizeScheduleDateTime(value) {
+    const trimmedValue = String(value || "").trim();
+    if (!trimmedValue) return "";
+    const timestamp = new Date(trimmedValue).getTime();
+    return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : "";
+}
+
+function isMenuItemOrderable(item, businessType = "restaurant") {
+    if (!item || ["hidden", "out-of-stock"].includes(item.availability)) return false;
+    if (normalizeBusinessType(businessType) !== "home-vendor") return true;
+    const deadlineTimestamp = item.orderDeadline ? new Date(item.orderDeadline).getTime() : NaN;
+    return !Number.isFinite(deadlineTimestamp) || deadlineTimestamp > Date.now();
+}
+
+function getMenuItemScheduleError(item, businessType = "restaurant") {
+    if (normalizeBusinessType(businessType) !== "home-vendor" || !item) return "";
+    const deadlineTimestamp = item.orderDeadline ? new Date(item.orderDeadline).getTime() : NaN;
+    if (Number.isFinite(deadlineTimestamp) && deadlineTimestamp <= Date.now()) {
+        return `Pre-orders for ${item.name} have closed.`;
+    }
+    return "";
 }
 
 function normalizeAvailability(value) {
@@ -3448,6 +3477,7 @@ function normalizeStockQuantity(value) {
 
 async function validateOrderStock(orderItems, restaurantId = defaultRestaurantId) {
     const siteData = await readSiteData(restaurantId);
+    const restaurant = await getRestaurantById(restaurantId);
     const menuItems = Array.isArray(siteData.menuItems) ? siteData.menuItems : [];
     const stockErrors = [];
 
@@ -3464,6 +3494,12 @@ async function validateOrderStock(orderItems, restaurantId = defaultRestaurantId
 
         if (menuItem.availability === "hidden" || menuItem.availability === "out-of-stock") {
             stockErrors.push(`${menuItem.name} is not available right now.`);
+            return;
+        }
+
+        const scheduleError = getMenuItemScheduleError(menuItem, restaurant && restaurant.businessType);
+        if (scheduleError) {
+            stockErrors.push(scheduleError);
             return;
         }
 

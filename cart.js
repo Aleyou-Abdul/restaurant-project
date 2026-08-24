@@ -408,6 +408,14 @@
             null;
     }
 
+    function getCartScheduleError(cart) {
+        return (cart || []).map((cartItem) => getMenuItemForCartItem(cartItem)).find((item) => {
+            if (!item || !item.orderDeadline) return false;
+            const deadline = new Date(item.orderDeadline).getTime();
+            return Number.isFinite(deadline) && deadline <= Date.now();
+        });
+    }
+
     function syncCartWithStock() {
         const cart = getCart();
         let didChange = false;
@@ -421,7 +429,8 @@
                     return cartItem;
                 }
 
-                if (menuItem.availability === "hidden" || menuItem.availability === "out-of-stock") {
+                const deadline = menuItem.orderDeadline ? new Date(menuItem.orderDeadline).getTime() : NaN;
+                if (menuItem.availability === "hidden" || menuItem.availability === "out-of-stock" || (Number.isFinite(deadline) && deadline <= Date.now())) {
                     didChange = true;
                     return null;
                 }
@@ -791,6 +800,12 @@
 
                 if (stockSyncedCart.length === 0) {
                     setPaymentStatus("Your cart changed because some items are no longer available.", "info");
+                    return;
+                }
+                const closedOffer = getCartScheduleError(stockSyncedCart);
+                if (closedOffer) {
+                    setPaymentStatus(`Pre-orders for ${closedOffer.name} have closed. Remove it before paying.`, "error");
+                    renderCart();
                     return;
                 }
             } catch (error) {

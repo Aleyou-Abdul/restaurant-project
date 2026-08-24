@@ -153,6 +153,49 @@ async function main() {
             "Tenant A menu items must never appear in Tenant B."
         );
 
+        const vendorOfferSave = await request(port, `/api/site-data?restaurantId=${encodeURIComponent(restaurantB.id)}`, {
+            method: "POST",
+            body: JSON.stringify({
+                site: { restaurantName: "Tenant B Kitchen" },
+                categories: ["Snacks"],
+                menuItems: [
+                    {
+                        id: "vendor-preorder-open",
+                        name: "Tomorrow's Fura",
+                        price: 1200,
+                        image: "images/menu-placeholder.svg",
+                        category: "Snacks",
+                        availability: "available",
+                        availableFrom: "2099-01-02T12:00",
+                        orderDeadline: "2099-01-01T18:00"
+                    },
+                    {
+                        id: "vendor-preorder-closed",
+                        name: "Closed Shawarma Offer",
+                        price: 1500,
+                        image: "images/menu-placeholder.svg",
+                        category: "Snacks",
+                        availability: "available",
+                        orderDeadline: "2000-01-01T18:00"
+                    }
+                ],
+                deliveryZones: []
+            })
+        }, vendorAdminLogin.cookie);
+        assert.equal(vendorOfferSave.status, 200, "Vendor admin should save scheduled offers.");
+
+        const vendorFoodSearch = await request(port, "/api/food-search");
+        assert.equal(
+            vendorFoodSearch.data.items.some((item) => item.id === "vendor-preorder-open" && item.availableFrom && item.orderDeadline),
+            true,
+            "An open vendor preorder should appear in public food search with its schedule."
+        );
+        assert.equal(
+            vendorFoodSearch.data.items.some((item) => item.id === "vendor-preorder-closed"),
+            false,
+            "An expired vendor preorder must not appear in public food search."
+        );
+
         const publicRestaurants = await request(port, "/api/restaurants");
         const publicRestaurantA = publicRestaurants.data.restaurants.find((restaurant) => restaurant.id === restaurantA.id);
         const publicRestaurantB = publicRestaurants.data.restaurants.find((restaurant) => restaurant.id === restaurantB.id);
