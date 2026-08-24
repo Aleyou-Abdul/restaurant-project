@@ -39,19 +39,20 @@
             </section>
 
             <section id="restaurants" class="super-panel">
-                <div class="super-panel-heading"><div><h2>Restaurants</h2><p>Approve, suspend, or remove platform tenants.</p></div></div>
+                <div class="super-panel-heading"><div><h2>Businesses</h2><p>Approve, suspend, or remove restaurant and home-vendor tenants.</p></div></div>
                 <div class="super-table-wrap">
                     <table class="super-table">
-                        <thead><tr><th>Restaurant</th><th>Contact</th><th>Status</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Business</th><th>Type</th><th>Contact</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody id="restaurant-list"></tbody>
                     </table>
                 </div>
             </section>
 
             <section id="create-restaurant" class="super-panel">
-                <div class="super-panel-heading"><div><h2>Add Restaurant</h2><p>Manual onboarding creates a separate restaurant workspace and admin account.</p></div></div>
+                <div class="super-panel-heading"><div><h2>Add Business</h2><p>Manual onboarding creates a separate restaurant or home-vendor workspace and admin account.</p></div></div>
                 <form id="restaurant-create-form" class="super-form-grid">
                     <label>Restaurant name<input name="name" required></label>
+                    <label>Business type<select name="businessType"><option value="restaurant">Restaurant</option><option value="home-vendor">Home Food Vendor</option></select></label>
                     <label>URL name<input name="slug" placeholder="e.g. tasty-kitchen"></label>
                     <label>Phone<input name="phone" type="tel"></label>
                     <label>Email<input name="email" type="email"></label>

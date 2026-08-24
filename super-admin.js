@@ -28,13 +28,15 @@ document.addEventListener("DOMContentLoaded", () => {
             const action = state === "active" ? "Suspend" : "Approve";
             const nextStatus = state === "active" ? "suspended" : "active";
             const protectedDefault = restaurant.id === "hungerstation-default";
+            const businessTypeLabel = restaurant.businessType === "home-vendor" ? "Home Food Vendor" : "Restaurant";
             return `<tr>
                 <td><strong>${escapeHtml(restaurant.name)}</strong><small>${escapeHtml(restaurant.slug)}</small><small>${restaurant.paymentConfigured ? "Payment configured" : "Payment setup needed"}</small></td>
+                <td>${escapeHtml(businessTypeLabel)}</td>
                 <td>${escapeHtml(restaurant.phone || "No phone")}<small>${escapeHtml(restaurant.email || "No email")}</small></td>
                 <td><span class="super-status ${escapeHtml(state)}">${escapeHtml(state)}</span></td>
                 <td class="super-actions"><a class="super-login-link" href="admin-login.html?restaurantId=${encodeURIComponent(restaurant.id)}">Admin</a><button data-status="${nextStatus}" data-id="${escapeHtml(restaurant.id)}" type="button">${action}</button>${protectedDefault ? "" : `<button data-delete="true" data-id="${escapeHtml(restaurant.id)}" class="danger" type="button">Delete</button>`}</td>
             </tr>`;
-        }).join("") || '<tr><td colspan="4">No restaurants have been created yet.</td></tr>';
+        }).join("") || '<tr><td colspan="5">No businesses have been created yet.</td></tr>';
     }
 
     function populatePaymentRestaurantOptions(restaurants, defaultServiceFee) {
@@ -88,7 +90,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const values = Object.fromEntries(new FormData(form).entries());
             await request("/api/super-admin/restaurants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) });
             form.reset();
-            showStatus("Restaurant created. Approve it when its profile and payment settings are ready.", "success");
+            showStatus("Business created. Approve it when its profile and payment settings are ready.", "success");
             await loadDashboard();
         } catch (error) { showStatus(error.message, "error"); }
     });

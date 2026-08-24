@@ -73,10 +73,10 @@ async function main() {
         });
         assert.equal(superLogin.status, 200, "Super Admin login should succeed.");
 
-        const createRestaurant = async (name, username) => {
+        const createRestaurant = async (name, username, businessType = "restaurant") => {
             const response = await request(port, "/api/super-admin/restaurants", {
                 method: "POST",
-                body: JSON.stringify({ name, adminUsername: username, adminPassword: "restaurant-password" })
+                body: JSON.stringify({ name, businessType, adminUsername: username, adminPassword: "restaurant-password" })
             }, superLogin.cookie);
             assert.equal(response.status, 201, `${name} should be created.`);
 
@@ -89,7 +89,8 @@ async function main() {
         };
 
         const restaurantA = await createRestaurant("Tenant A Kitchen", "tenant-a-admin");
-        const restaurantB = await createRestaurant("Tenant B Kitchen", "tenant-b-admin");
+        const restaurantB = await createRestaurant("Tenant B Kitchen", "tenant-b-admin", "home-vendor");
+        assert.equal(restaurantB.businessType, "home-vendor", "Home Food Vendor type should be saved during onboarding.");
 
         const adminALogin = await request(port, `/api/admin/login?restaurantId=${encodeURIComponent(restaurantA.id)}`, {
             method: "POST",
@@ -144,9 +145,11 @@ async function main() {
 
         const publicRestaurants = await request(port, "/api/restaurants");
         const publicRestaurantA = publicRestaurants.data.restaurants.find((restaurant) => restaurant.id === restaurantA.id);
+        const publicRestaurantB = publicRestaurants.data.restaurants.find((restaurant) => restaurant.id === restaurantB.id);
         assert.equal(publicRestaurantA.openingTime, "10:30", "Restaurant Admin opening time should update its public listing.");
         assert.equal(publicRestaurantA.closingTime, "23:00", "Restaurant Admin closing time should update its public listing.");
         assert.equal(publicRestaurantA.logoPath, "images/tenant-a-logo.png", "Restaurant Admin logo should update its public listing.");
+        assert.equal(publicRestaurantB.businessType, "home-vendor", "Public directory should retain the business type.");
 
         console.log("Tenant isolation check passed.");
     } finally {

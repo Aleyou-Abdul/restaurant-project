@@ -1393,6 +1393,7 @@ async function initializeDatabase() {
             closing_time TEXT NOT NULL DEFAULT '',
             delivery_available INTEGER NOT NULL DEFAULT 1,
             rating REAL NOT NULL DEFAULT 0,
+            business_type TEXT NOT NULL DEFAULT 'restaurant',
             status TEXT NOT NULL DEFAULT 'pending',
             approved INTEGER NOT NULL DEFAULT 0,
             suspended INTEGER NOT NULL DEFAULT 0,
@@ -1443,6 +1444,7 @@ async function initializeDatabase() {
     await ensureTableColumn("closing_history", "restaurant_id", "TEXT NOT NULL DEFAULT 'hungerstation-default'");
     await ensureTableColumn("restaurant_payment_settings", "paystack_public_key", "TEXT NOT NULL DEFAULT ''");
     await ensureTableColumn("restaurant_payment_settings", "paystack_secret_key_encrypted", "TEXT NOT NULL DEFAULT ''");
+    await ensureTableColumn("restaurants", "business_type", "TEXT NOT NULL DEFAULT 'restaurant'");
     await ensureDefaultStaffUserFromEnv();
     await migrateJsonDataIfNeeded();
     await ensureDefaultRestaurantSeed();
@@ -2083,6 +2085,12 @@ function normalizeRestaurantSlug(value) {
     return normalizedValue || defaultRestaurantSlug;
 }
 
+function normalizeBusinessType(value) {
+    return String(value || "").trim().toLowerCase() === "home-vendor"
+        ? "home-vendor"
+        : "restaurant";
+}
+
 function getRequestRestaurantId(requestUrl, req, fallback = defaultRestaurantId) {
     const queryRestaurantId = String(requestUrl.searchParams.get("restaurantId") || requestUrl.searchParams.get("restaurant") || "").trim();
     const headerRestaurantId = String(req.headers["x-restaurant-id"] || "").trim();
@@ -2196,7 +2204,7 @@ async function ensureDefaultRestaurantSeed() {
 async function readRestaurants() {
     const rows = await dbAll(`
         SELECT id, slug, name, logo_path, phone, email, address, opening_time, closing_time,
-               delivery_available, rating, status, approved, suspended, created_at, updated_at
+               delivery_available, rating, business_type, status, approved, suspended, created_at, updated_at
         FROM restaurants
         ORDER BY datetime(created_at) DESC, name ASC
     `);
@@ -2213,6 +2221,7 @@ async function readRestaurants() {
         closingTime: row.closing_time || "",
         deliveryAvailable: Boolean(row.delivery_available),
         rating: Number(row.rating || 0),
+        businessType: normalizeBusinessType(row.business_type),
         status: row.status || "pending",
         approved: Boolean(row.approved),
         suspended: Boolean(row.suspended),
@@ -2225,7 +2234,7 @@ async function getRestaurantById(restaurantId) {
     const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
     const row = await dbGet(
         `SELECT id, slug, name, logo_path, phone, email, address, opening_time, closing_time,
-                delivery_available, rating, status, approved, suspended, created_at, updated_at
+                delivery_available, rating, business_type, status, approved, suspended, created_at, updated_at
          FROM restaurants WHERE id = ?`,
         [normalizedRestaurantId]
     );
@@ -2246,6 +2255,7 @@ async function getRestaurantById(restaurantId) {
         closingTime: row.closing_time || "",
         deliveryAvailable: Boolean(row.delivery_available),
         rating: Number(row.rating || 0),
+        businessType: normalizeBusinessType(row.business_type),
         status: row.status || "pending",
         approved: Boolean(row.approved),
         suspended: Boolean(row.suspended),
@@ -2338,6 +2348,7 @@ async function createPlatformRestaurant(input) {
     const slug = normalizeRestaurantSlug(input.slug || name);
     const adminUsernameValue = normalizeUsername(input.adminUsername);
     const adminPasswordValue = String(input.adminPassword || "");
+    const businessType = normalizeBusinessType(input.businessType);
 
     if (!name || !adminUsernameValue || adminPasswordValue.length < 8) {
         throw new Error("Restaurant name, admin username, and an 8-character password are required.");
@@ -2366,12 +2377,12 @@ async function createPlatformRestaurant(input) {
 
     await dbRun(
         `INSERT INTO restaurants (
-            id, slug, name, phone, email, address, opening_time, closing_time,
+            id, slug, name, phone, email, address, opening_time, closing_time, business_type,
             delivery_available, status, approved, suspended, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'pending', 0, 0, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'pending', 0, 0, ?, ?)`,
         [
             restaurantId, slug, name, siteData.site.phone, siteData.site.email, siteData.site.location,
-            siteData.site.openingTime, siteData.site.closingTime, now, now
+            siteData.site.openingTime, siteData.site.closingTime, businessType, now, now
         ]
     );
     await saveSiteData(siteData, restaurantId);
