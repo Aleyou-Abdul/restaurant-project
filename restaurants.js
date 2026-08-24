@@ -60,6 +60,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return `${format(restaurant.openingTime)} - ${format(restaurant.closingTime)}`;
     }
 
+    function getBusinessTypeLabel(businessType) {
+        return businessType === "home-vendor" ? "Home Food Vendor" : "Restaurant";
+    }
+
     function render() {
         const query = searchEl.value.trim().toLowerCase();
         const matches = restaurants.filter((restaurant) => `${restaurant.name} ${restaurant.address}`.toLowerCase().includes(query));
@@ -68,7 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <article class="restaurant-directory-card">
                 <div class="restaurant-card-logo"><img src="${escapeHtml(imageSource(restaurant.logoPath))}" alt="${escapeHtml(restaurant.name)} logo"></div>
                 <div class="restaurant-card-content">
-                    <span class="restaurant-open-badge">${restaurant.deliveryAvailable ? "Delivery available" : "Pickup only"}</span>
+                    <div class="restaurant-card-badges"><span class="business-type-badge${restaurant.businessType === "home-vendor" ? " is-vendor" : ""}">${escapeHtml(getBusinessTypeLabel(restaurant.businessType))}</span><span class="restaurant-open-badge">${restaurant.deliveryAvailable ? "Delivery available" : "Pickup only"}</span></div>
                     <h2>${escapeHtml(restaurant.name)}</h2>
                     <p>${escapeHtml(restaurant.address || "Address coming soon")}</p>
                     <dl><div><dt>Opening hours</dt><dd>${escapeHtml(formatHours(restaurant))}</dd></div><div><dt>Rating</dt><dd>New on HungerStation</dd></div></dl>
@@ -106,7 +110,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <article class="food-directory-card">
                 <img src="${escapeHtml(imageSource(item.image))}" alt="${escapeHtml(item.name)}">
                 <div>
-                    <span>${escapeHtml(item.restaurantName)}</span>
+                    <span>${escapeHtml(item.restaurantName)} <em class="business-type-inline${item.businessType === "home-vendor" ? " is-vendor" : ""}">${escapeHtml(getBusinessTypeLabel(item.businessType))}</em></span>
                     <h3>${escapeHtml(item.name)}</h3>
                     <p>${escapeHtml(item.category)} · Ready in about ${Number(item.preparationMinutes || 25)} mins</p>
                     <div class="food-directory-card-footer"><strong>${formatPrice(item.price)}</strong><a href="${getItemMenuLink(item)}">Order Now</a></div>
@@ -120,7 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <article class="food-directory-card platform-trending-card">
                 <img src="${escapeHtml(imageSource(item.image))}" alt="${escapeHtml(item.name)}">
                 <div>
-                    <span>${escapeHtml(item.restaurantName)}</span>
+                    <span>${escapeHtml(item.restaurantName)} <em class="business-type-inline${item.businessType === "home-vendor" ? " is-vendor" : ""}">${escapeHtml(getBusinessTypeLabel(item.businessType))}</em></span>
                     <h3>${escapeHtml(item.name)}</h3>
                     <p>${Number(item.orderCount)} order${Number(item.orderCount) === 1 ? "" : "s"} this week · ${escapeHtml(item.category)}</p>
                     <div class="food-directory-card-footer"><strong>${formatPrice(item.price)}</strong><a href="${getItemMenuLink(item)}">Order Now</a></div>

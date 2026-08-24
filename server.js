@@ -175,7 +175,8 @@ const server = http.createServer(async (req, res) => {
                     preparationMinutes: Number(item.preparationMinutes || 25),
                     restaurantId: restaurant.id,
                     restaurantName: restaurant.name,
-                    restaurantSlug: restaurant.slug
+                    restaurantSlug: restaurant.slug,
+                    businessType: restaurant.businessType
                 }));
         }));
         const items = foodGroups.flat()
@@ -224,6 +225,7 @@ const server = http.createServer(async (req, res) => {
                     preparationMinutes: Number(item.preparationMinutes || 25),
                     restaurantId: restaurant.id,
                     restaurantName: restaurant.name,
+                    businessType: restaurant.businessType,
                     orderCount: orderCountByItem.get(String(item.id || item.name)) || 0
                 }))
                 .filter((item) => item.orderCount > 0);
