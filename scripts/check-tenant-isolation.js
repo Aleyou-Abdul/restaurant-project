@@ -59,13 +59,28 @@ async function main() {
             STORAGE_ROOT: storageRoot,
             SUPER_ADMIN_USERNAME: "platform-test",
             SUPER_ADMIN_PASSWORD: "platform-test-password",
-            SUPER_ADMIN_PASSWORD_HASH: ""
+            SUPER_ADMIN_PASSWORD_HASH: "",
+            HOME_VENDOR_DEMO_NAME: "Test Home Food Demo",
+            HOME_VENDOR_DEMO_ADMIN_USERNAME: "vendor-demo-test",
+            HOME_VENDOR_DEMO_ADMIN_PASSWORD: "vendor-demo-password"
         },
         stdio: ["ignore", "pipe", "pipe"]
     });
 
     try {
         await waitForServer(serverProcess);
+
+        const demoVendorPublicData = await request(port, "/api/site-data?restaurantId=hungerstation-demo-vendor");
+        assert.equal(demoVendorPublicData.status, 200, "Configured demo vendor should be publicly available.");
+        assert.equal(demoVendorPublicData.data.site.restaurantName, "Test Home Food Demo", "Demo vendor should use its configured name.");
+        assert.equal(demoVendorPublicData.data.menuItems.length, 2, "Demo vendor should have sample offers.");
+
+        const demoVendorLogin = await request(port, "/api/admin/login?restaurantId=hungerstation-demo-vendor", {
+            method: "POST",
+            body: JSON.stringify({ username: "vendor-demo-test", password: "vendor-demo-password", restaurantId: "hungerstation-demo-vendor" })
+        });
+        assert.equal(demoVendorLogin.status, 200, "Configured demo vendor admin should be able to sign in.");
+        assert.equal(demoVendorLogin.data.businessType, "home-vendor", "Demo vendor login should open the Vendor Studio.");
 
         const superLogin = await request(port, "/api/super-admin/login", {
             method: "POST",

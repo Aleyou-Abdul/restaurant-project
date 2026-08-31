@@ -181,10 +181,17 @@ Important `.env` values include:
 - `STAFF_USERNAME`
 - `STAFF_DISPLAY_NAME`
 - `STAFF_PASSWORD_HASH`
+- `HOME_VENDOR_DEMO_NAME`
+- `HOME_VENDOR_DEMO_ADMIN_USERNAME`
+- `HOME_VENDOR_DEMO_ADMIN_PASSWORD_HASH`
 - `BACKUP_HOUR`
 - `BACKUP_RETENTION_DAYS`
 
 For free Render demos, setting the optional staff variables is recommended because temporary storage can reset staff accounts after restart or redeploy.
+
+### Home Food Vendor Demo
+
+To add an isolated Home Food Vendor demo, set `HOME_VENDOR_DEMO_ADMIN_USERNAME` and `HOME_VENDOR_DEMO_ADMIN_PASSWORD_HASH` in Render. Generate the hash with `npm run hash-password`. After deployment, sign in at `/admin-login.html?restaurantId=hungerstation-demo-vendor`; the login automatically opens the Vendor Studio. The demo includes sample offers and does not share data with the default restaurant or any other tenant.
 
 Payments are intentionally blocked unless `PAYSTACK_SPLIT_CODE` is configured. This enforces the service-fee split before any restaurant can accept orders through the system.
 

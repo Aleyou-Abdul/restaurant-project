@@ -19,6 +19,8 @@ const logFilePath = path.join(logsDirPath, "server.log");
 const uploadsDirPath = path.join(storageRootPath, "uploads");
 const defaultRestaurantId = "hungerstation-default";
 const defaultRestaurantSlug = "main";
+const demoHomeVendorId = "hungerstation-demo-vendor";
+const demoHomeVendorSlug = "home-food-demo";
 const defaultPlatformServiceFeeNaira = 100;
 const operationalOrderStatuses = ["Pending", "Accepted", "Preparing", "Out For Delivery", "Delivered"];
 
@@ -42,6 +44,10 @@ const defaultStaffUsername = process.env.STAFF_USERNAME || "";
 const defaultStaffDisplayName = process.env.STAFF_DISPLAY_NAME || "";
 const defaultStaffPassword = process.env.STAFF_PASSWORD || "";
 const defaultStaffPasswordHash = process.env.STAFF_PASSWORD_HASH || "";
+const demoHomeVendorName = process.env.HOME_VENDOR_DEMO_NAME || "HungerStation Home Food Demo";
+const demoHomeVendorAdminUsername = process.env.HOME_VENDOR_DEMO_ADMIN_USERNAME || "";
+const demoHomeVendorAdminPassword = process.env.HOME_VENDOR_DEMO_ADMIN_PASSWORD || "";
+const demoHomeVendorAdminPasswordHash = process.env.HOME_VENDOR_DEMO_ADMIN_PASSWORD_HASH || "";
 const backupHour = Number(process.env.BACKUP_HOUR || 3);
 const backupRetentionDays = Number(process.env.BACKUP_RETENTION_DAYS || 14);
 const adminSessions = new Map();
@@ -1460,6 +1466,7 @@ async function initializeDatabase() {
     await ensureDefaultRestaurantSeed();
     await ensureDefaultRestaurantAdminFromEnv();
     await ensurePlatformDefaults();
+    await ensureDemoHomeVendorSeed();
     const integrityResult = await checkDatabaseIntegrity();
 
     if (!integrityResult.ok) {
@@ -2301,6 +2308,87 @@ async function ensureDefaultRestaurantAdminFromEnv() {
         restaurantId: defaultRestaurantId,
         username,
         displayName: username,
+        passwordHash,
+        blocked: false
+    });
+}
+
+async function ensureDemoHomeVendorSeed() {
+    const username = normalizeUsername(demoHomeVendorAdminUsername);
+    const passwordHash = String(demoHomeVendorAdminPasswordHash || "").trim() ||
+        (demoHomeVendorAdminPassword ? createPasswordHash(demoHomeVendorAdminPassword) : "");
+
+    // The demo is opt-in, so no public account exists until its credentials are configured.
+    if (!username || !passwordHash) return;
+
+    const existingVendor = await getRestaurantById(demoHomeVendorId);
+    if (!existingVendor) {
+        const now = new Date().toISOString();
+        const platformSettings = await readPlatformSettings();
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(12, 0, 0, 0);
+        const deadline = new Date(tomorrow);
+        deadline.setHours(9, 0, 0, 0);
+        const siteData = createNewRestaurantSiteData();
+        siteData.site = {
+            ...siteData.site,
+            restaurantName: String(demoHomeVendorName).trim() || "HungerStation Home Food Demo",
+            phone: "08000000000",
+            email: "demo@hungerstation.ng",
+            location: "Kaduna, Nigeria",
+            heroTitle: "Fresh home-made food, ready to order",
+            heroSubtitle: "A HungerStation Home Food Vendor demo."
+        };
+        siteData.categories = ["Home Made", "Snacks"];
+        siteData.menuItems = [
+            {
+                id: "demo-fura-preorder",
+                name: "Fresh Fura da Nono",
+                price: 1200,
+                image: "images/shawarma.jfif",
+                category: "Home Made",
+                availability: "available",
+                stockQuantity: null,
+                availableFrom: tomorrow.toISOString(),
+                orderDeadline: deadline.toISOString()
+            },
+            {
+                id: "demo-shawarma",
+                name: "Chicken Shawarma",
+                price: 1800,
+                image: "images/shawarma.jfif",
+                category: "Snacks",
+                availability: "available",
+                stockQuantity: null
+            }
+        ];
+
+        await dbRun(
+            `INSERT INTO restaurants (
+                id, slug, name, phone, email, address, opening_time, closing_time, business_type,
+                delivery_available, status, approved, suspended, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'home-vendor', 1, 'active', 1, 0, ?, ?)`,
+            [
+                demoHomeVendorId, demoHomeVendorSlug, siteData.site.restaurantName, siteData.site.phone,
+                siteData.site.email, siteData.site.location, siteData.site.openingTime,
+                siteData.site.closingTime, now, now
+            ]
+        );
+        await saveSiteData(siteData, demoHomeVendorId);
+        await dbRun(
+            `INSERT INTO restaurant_payment_settings (
+                restaurant_id, service_fee_naira, currency, created_at, updated_at
+            ) VALUES (?, ?, 'NGN', ?, ?)`,
+            [demoHomeVendorId, Number(platformSettings.service_fee_naira || defaultPlatformServiceFeeNaira), now, now]
+        );
+    }
+
+    // Recreate only the demo admin after a free Render reset; tenant data remains isolated.
+    await saveRestaurantAdminUser({
+        restaurantId: demoHomeVendorId,
+        username,
+        displayName: "Demo Home Vendor",
         passwordHash,
         blocked: false
     });
