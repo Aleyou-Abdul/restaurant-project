@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let heroSlideIndex = 0;
     let closingCountdownIntervalId = null;
     let orderWindowState = { canOrder: true, isWithinCountdown: false };
+    let isHomeVendorStorefront = false;
 
     function parsePrice(value) {
         return Number(String(value).replace(/[^\d]/g, "")) || 0;
@@ -405,8 +406,27 @@ document.addEventListener("DOMContentLoaded", () => {
                     ? `<span class="meal-stock-badge is-available">${escapeHtml(`${item.stockQuantity} left`)}</span>`
                     : '<span class="meal-stock-badge is-available">Available</span>';
         const scheduleMessage = getOfferScheduleMessage(item);
-        card.className = "meal fade-in";
+        card.className = `${isHomeVendorStorefront ? "vendor-offer-card" : "meal"} fade-in`;
         card.dataset.menuItemId = String(item.id || "");
+        if (isHomeVendorStorefront) {
+            card.innerHTML = `
+                <button class="vendor-offer-open" type="button" aria-label="View ${escapeHtml(item.name)} details">
+                    <img src="${escapeHtml(getSafeImageSrc(item.image))}" alt="${escapeHtml(item.name)}">
+                    <span class="vendor-offer-badge">${escapeHtml(item.category || "Today's special")}</span>
+                    <span class="vendor-offer-price">${formatPrice(item.price)}</span>
+                </button>
+                <div class="vendor-offer-content">
+                    <h3>${escapeHtml(item.name)}</h3>
+                    <p>${escapeHtml(scheduleMessage || "Freshly made today. Tap to see the full offer.")}</p>
+                    <button class="vendor-offer-details" type="button">View offer</button>
+                </div>
+            `;
+            card.querySelectorAll(".vendor-offer-open, .vendor-offer-details").forEach((button) => {
+                button.addEventListener("click", () => openVendorOffer(item));
+            });
+            return card;
+        }
+
         card.innerHTML = `
             <div class="meal-media">
                 <img src="${escapeHtml(getSafeImageSrc(item.image))}" alt="${escapeHtml(item.name)}">
@@ -435,6 +455,51 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         return card;
+    }
+
+    function openVendorOffer(item) {
+        const existingModal = document.getElementById("vendor-offer-modal");
+        if (existingModal) existingModal.remove();
+
+        const isUnavailable = item.availability === "out-of-stock" || item.availability === "hidden";
+        const scheduleMessage = getOfferScheduleMessage(item);
+        const modal = document.createElement("div");
+        modal.id = "vendor-offer-modal";
+        modal.className = "vendor-offer-modal";
+        modal.innerHTML = `
+            <div class="vendor-offer-modal-backdrop" data-close-vendor-modal></div>
+            <section class="vendor-offer-modal-card" role="dialog" aria-modal="true" aria-labelledby="vendor-offer-modal-title">
+                <button class="vendor-offer-modal-close" type="button" aria-label="Close offer" data-close-vendor-modal>&times;</button>
+                <img src="${escapeHtml(getSafeImageSrc(item.image))}" alt="${escapeHtml(item.name)}">
+                <div class="vendor-offer-modal-content">
+                    <span>${escapeHtml(item.category || "Today's special")}</span>
+                    <h2 id="vendor-offer-modal-title">${escapeHtml(item.name)}</h2>
+                    <strong>${formatPrice(item.price)}</strong>
+                    <p>${escapeHtml(scheduleMessage || "Prepared fresh by this home food vendor.")}</p>
+                    <div class="vendor-offer-modal-actions">
+                        <button type="button" class="vendor-offer-add" ${orderWindowState.canOrder && !isUnavailable ? "" : "disabled"}>${isUnavailable ? "Not Available" : orderWindowState.canOrder ? "Add to Basket" : "Ordering Closed"}</button>
+                        <a href="${withRestaurantContext("cart.html")}">View Basket</a>
+                    </div>
+                </div>
+            </section>
+        `;
+        document.body.appendChild(modal);
+        document.body.classList.add("vendor-modal-open");
+
+        const closeModal = () => {
+            modal.remove();
+            document.body.classList.remove("vendor-modal-open");
+        };
+        modal.querySelectorAll("[data-close-vendor-modal]").forEach((button) => button.addEventListener("click", closeModal));
+        modal.querySelector(".vendor-offer-add").addEventListener("click", () => {
+            if (!orderWindowState.canOrder || isUnavailable) return;
+            addMealToCart(item);
+            closeModal();
+        });
+        modal.addEventListener("keydown", (event) => {
+            if (event.key === "Escape") closeModal();
+        });
+        modal.querySelector(".vendor-offer-modal-close").focus();
     }
 
     function renderCardList(container, items, emptyMessage) {
@@ -544,6 +609,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const siteLogoImageEl = document.getElementById("site-logo-image");
         const siteLogoTextEl = document.getElementById("site-logo");
         const footerLogoImageEl = document.getElementById("footer-logo-image");
+        isHomeVendorStorefront = data.businessType === "home-vendor";
+        document.body.classList.toggle("home-vendor-storefront", isHomeVendorStorefront);
         siteDataCache = {
             site,
             categories: data.categories || [],
@@ -581,10 +648,34 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("footer-email").textContent = site.email || "";
         document.getElementById("footer-location").textContent = site.location || "";
         document.getElementById("footer-bottom-name").textContent = site.restaurantName || "My Restaurant";
+        applyStorefrontMode(site);
         renderHeroSlides(getHeroSlides(site, siteDataCache.menuItems));
         renderClosingCountdown(site);
         renderCategoryFilters(siteDataCache.categories);
         renderMenuItems();
+    }
+
+    function applyStorefrontMode(site) {
+        const heroKicker = document.querySelector(".hero-kicker");
+        const menuHeading = document.querySelector("#menu .section-heading h2");
+        const menuDescription = document.querySelector("#menu .section-heading p:last-child");
+        const orderLink = document.querySelector(".hero-actions a:first-child");
+        const cartLink = document.querySelector(".hero-secondary-link");
+        const restaurantLink = document.querySelector('nav a[href="restaurants.html"]');
+
+        if (!isHomeVendorStorefront) return;
+
+        heroKicker.textContent = "HOME FOOD VENDOR · TODAY'S DROP";
+        document.getElementById("hero-title").textContent = site.heroTitle || "Good food is closer than you think";
+        document.getElementById("hero-subtitle").textContent = site.heroSubtitle || "Browse fresh daily offers, tap a meal, and pre-order in seconds.";
+        menuHeading.textContent = "Today's offers";
+        menuDescription.textContent = "Tap any offer to view the details, availability, and preorder time.";
+        orderLink.textContent = "See today's offers";
+        cartLink.textContent = "My basket";
+        if (restaurantLink) {
+            restaurantLink.href = "vendors.html";
+            restaurantLink.textContent = "Home Vendors";
+        }
     }
 
     async function loadSiteData() {

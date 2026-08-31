@@ -152,7 +152,11 @@ const server = http.createServer(async (req, res) => {
             return sendJson(res, 403, { ok: false, message: "This restaurant is not currently available for ordering." });
         }
 
-        return sendJson(res, 200, await readSiteData(requestRestaurantId));
+        const siteData = await readSiteData(requestRestaurantId);
+        return sendJson(res, 200, {
+            ...siteData,
+            businessType: restaurant.businessType
+        });
     }
 
     if (req.method === "GET" && requestUrl.pathname === "/api/restaurants") {

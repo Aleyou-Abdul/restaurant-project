@@ -161,6 +161,7 @@ async function main() {
         const tenantBPublicData = await request(port, `/api/site-data?restaurantId=${encodeURIComponent(restaurantB.id)}`);
         assert.equal(tenantBPublicData.status, 200, "Approved restaurant menus remain publicly viewable.");
         assert.equal(tenantBPublicData.data.site.restaurantName, "Tenant B Kitchen", "Cross-tenant save must not alter Tenant B data.");
+        assert.equal(tenantBPublicData.data.businessType, "home-vendor", "Vendor storefronts must receive their own display type.");
         assert.deepEqual(tenantBPublicData.data.menuItems, [], "A new restaurant must not inherit demo menu items.");
         assert.equal(
             tenantBPublicData.data.menuItems.some((item) => item.name === "Tenant A Only Meal"),
