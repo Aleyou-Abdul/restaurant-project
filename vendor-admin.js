@@ -58,8 +58,6 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("vendor-phone").value = site.phone || "";
         document.getElementById("vendor-email").value = site.email || "";
         document.getElementById("vendor-location").value = site.location || "";
-        document.getElementById("vendor-opening-time").value = site.openingTime || "";
-        document.getElementById("vendor-closing-time").value = site.closingTime || "";
         document.getElementById("vendor-logo-path").value = site.logoPath || "";
         document.getElementById("vendor-storefront-link").href = withContext("index.html");
     }
@@ -111,7 +109,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById("vendor-profile-form").addEventListener("submit", async (event) => {
         event.preventDefault();
-        siteData.site = { ...siteData.site, restaurantName: document.getElementById("vendor-name").value.trim(), phone: document.getElementById("vendor-phone").value.trim(), email: document.getElementById("vendor-email").value.trim(), location: document.getElementById("vendor-location").value.trim(), openingTime: document.getElementById("vendor-opening-time").value, closingTime: document.getElementById("vendor-closing-time").value, logoPath: document.getElementById("vendor-logo-path").value.trim() };
+        siteData.site = { ...siteData.site, restaurantName: document.getElementById("vendor-name").value.trim(), phone: document.getElementById("vendor-phone").value.trim(), email: document.getElementById("vendor-email").value.trim(), location: document.getElementById("vendor-location").value.trim(), logoPath: document.getElementById("vendor-logo-path").value.trim() };
         try { await saveSiteData("Vendor profile saved."); populateProfile(); } catch (error) { setStatus(error.message, "error"); }
     });
 

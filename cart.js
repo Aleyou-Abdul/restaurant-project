@@ -175,6 +175,12 @@
 
     function getOrderingWindowState() {
         const site = siteData.site || {};
+        if (siteData.businessType === "home-vendor") {
+            return {
+                canOrder: true,
+                statusText: "Each food offer has its own preorder deadline."
+            };
+        }
         const opening = parseTimeToDate(site.openingTime);
         const closing = parseTimeToDate(site.closingTime);
 

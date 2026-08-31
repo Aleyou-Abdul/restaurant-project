@@ -296,6 +296,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function getOrderingWindowState(site) {
+        if (isHomeVendorStorefront) {
+            return {
+                canOrder: true,
+                isWithinCountdown: false,
+                isClosed: false,
+                secondsToClose: null,
+                statusText: "",
+                hoursText: "",
+                opensAtText: ""
+            };
+        }
+
         const opening = parseTimeToDate(site.openingTime);
         const closing = parseTimeToDate(site.closingTime);
 
@@ -350,6 +362,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
         stopClosingCountdown();
         cardEl.classList.remove("is-warning", "is-closed");
+
+        if (isHomeVendorStorefront) {
+            titleEl.textContent = "Pre-order";
+            subtitleEl.textContent = "Each offer has its own deadline";
+            return;
+        }
 
         if (!currentOrderWindow.canOrder) {
             titleEl.textContent = "Closed";
@@ -662,6 +680,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const orderLink = document.querySelector(".hero-actions a:first-child");
         const cartLink = document.querySelector(".hero-secondary-link");
         const restaurantLink = document.querySelector('nav a[href="restaurants.html"]');
+        const promiseLabel = document.querySelector(".hero-panel-card p");
+        const promiseTitle = document.querySelector(".hero-panel-card h3");
+        const metricCards = document.querySelectorAll(".hero-metrics div");
 
         if (!isHomeVendorStorefront) return;
 
@@ -672,6 +693,14 @@ document.addEventListener("DOMContentLoaded", () => {
         menuDescription.textContent = "Tap any offer to view the details, availability, and preorder time.";
         orderLink.textContent = "See today's offers";
         cartLink.textContent = "My basket";
+        promiseLabel.textContent = "How home vendor offers work";
+        promiseTitle.textContent = "Choose an offer, check its deadline, and pre-order while it is available.";
+        if (metricCards.length >= 2) {
+            metricCards[0].querySelector("strong").textContent = "Fresh";
+            metricCards[0].querySelector("span").textContent = "Made in small batches";
+            metricCards[1].querySelector("strong").textContent = "Tap";
+            metricCards[1].querySelector("span").textContent = "View offer details";
+        }
         if (restaurantLink) {
             restaurantLink.href = "vendors.html";
             restaurantLink.textContent = "Home Vendors";

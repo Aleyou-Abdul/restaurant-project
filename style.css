@@ -65,6 +65,11 @@
     background: rgba(255, 250, 239, 0.15);
 }
 
+.home-vendor-storefront .hero-hours,
+.home-vendor-storefront .hero-order-status {
+    display: none;
+}
+
 .home-vendor-storefront .hero-panel-card {
     background: #fffaf0;
 }
@@ -182,6 +187,17 @@
 
 .vendor-offer-content {
     padding: 16px;
+}
+
+.vendor-schedule-note {
+    margin: 0;
+    padding: 12px 14px;
+    border: 1px solid #c8d9c3;
+    border-radius: 10px;
+    background: #f1f7ee;
+    color: #3c6348;
+    font-size: 0.82rem;
+    line-height: 1.45;
 }
 
 .vendor-offer-content h3 {
