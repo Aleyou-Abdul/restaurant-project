@@ -39,6 +39,61 @@ document.addEventListener("DOMContentLoaded", () => {
         return new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(Number(value || 0));
     }
 
+    function readFileAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ""));
+            reader.onerror = () => reject(new Error("Unable to read the selected image."));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function uploadImage(file) {
+        const dataUrl = await readFileAsDataUrl(file);
+        const data = await request("/api/upload-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileName: file.name, dataUrl })
+        });
+        return data.imagePath;
+    }
+
+    function updateImagePreview(pathInputEl, previewEl, statusEl, emptyMessage) {
+        const imagePath = pathInputEl.value.trim();
+        if (!imagePath) {
+            previewEl.hidden = true;
+            previewEl.removeAttribute("src");
+            statusEl.textContent = emptyMessage;
+            return;
+        }
+
+        previewEl.src = imagePath;
+        previewEl.hidden = false;
+        statusEl.textContent = `Ready: ${imagePath}`;
+    }
+
+    function wireImageUploader({ pathInputEl, uploadBtnEl, uploadInputEl, statusEl, previewEl, label, emptyMessage }) {
+        uploadBtnEl.addEventListener("click", () => uploadInputEl.click());
+        uploadInputEl.addEventListener("change", async () => {
+            const file = uploadInputEl.files && uploadInputEl.files[0];
+            if (!file) return;
+
+            try {
+                statusEl.textContent = `Uploading ${label}...`;
+                setStatus(`Uploading ${label}...`, "info");
+                pathInputEl.value = await uploadImage(file);
+                updateImagePreview(pathInputEl, previewEl, statusEl, emptyMessage);
+                setStatus(`${label} uploaded successfully.`, "success");
+            } catch (error) {
+                statusEl.textContent = error.message;
+                setStatus(error.message, "error");
+            } finally {
+                uploadInputEl.value = "";
+            }
+        });
+        pathInputEl.addEventListener("input", () => updateImagePreview(pathInputEl, previewEl, statusEl, emptyMessage));
+    }
+
     function isLive(item) {
         const deadline = item.orderDeadline ? new Date(item.orderDeadline).getTime() : NaN;
         return item.availability !== "hidden" && item.availability !== "out-of-stock" && (!Number.isFinite(deadline) || deadline > Date.now());
@@ -59,6 +114,12 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("vendor-email").value = site.email || "";
         document.getElementById("vendor-location").value = site.location || "";
         document.getElementById("vendor-logo-path").value = site.logoPath || "";
+        updateImagePreview(
+            document.getElementById("vendor-logo-path"),
+            document.getElementById("vendor-logo-preview"),
+            document.getElementById("vendor-logo-upload-status"),
+            "No logo uploaded yet."
+        );
         document.getElementById("vendor-storefront-link").href = withContext("index.html");
     }
 
@@ -124,7 +185,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const id = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "")}-${Date.now()}`;
         siteData.categories = [...new Set([...(siteData.categories || []), category])];
         siteData.menuItems = [...(siteData.menuItems || []), { id, name, price, category, image, availability: "available", stockQuantity: null, availableFrom, orderDeadline }];
-        try { await saveSiteData("Food offer published."); event.currentTarget.reset(); renderOffers(); } catch (error) { setStatus(error.message, "error"); }
+        try {
+            await saveSiteData("Food offer published.");
+            event.currentTarget.reset();
+            updateImagePreview(
+                document.getElementById("vendor-offer-image"),
+                document.getElementById("vendor-offer-preview"),
+                document.getElementById("vendor-offer-upload-status"),
+                "No food image uploaded yet."
+            );
+            renderOffers();
+        } catch (error) { setStatus(error.message, "error"); }
     });
 
     offerListEl.addEventListener("change", async (event) => {
@@ -142,6 +213,24 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById("vendor-refresh-btn").addEventListener("click", loadStudio);
+    wireImageUploader({
+        pathInputEl: document.getElementById("vendor-logo-path"),
+        uploadBtnEl: document.getElementById("vendor-logo-upload-btn"),
+        uploadInputEl: document.getElementById("vendor-logo-upload-input"),
+        statusEl: document.getElementById("vendor-logo-upload-status"),
+        previewEl: document.getElementById("vendor-logo-preview"),
+        label: "logo",
+        emptyMessage: "No logo uploaded yet."
+    });
+    wireImageUploader({
+        pathInputEl: document.getElementById("vendor-offer-image"),
+        uploadBtnEl: document.getElementById("vendor-offer-upload-btn"),
+        uploadInputEl: document.getElementById("vendor-offer-upload-input"),
+        statusEl: document.getElementById("vendor-offer-upload-status"),
+        previewEl: document.getElementById("vendor-offer-preview"),
+        label: "food image",
+        emptyMessage: "No food image uploaded yet."
+    });
     document.getElementById("vendor-logout-btn").addEventListener("click", async () => {
         await request("/api/admin/logout", { method: "POST" });
         window.location.href = withContext("admin-login.html");

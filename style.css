@@ -200,6 +200,49 @@
     line-height: 1.45;
 }
 
+.vendor-image-upload {
+    display: grid;
+    gap: 9px;
+}
+
+.vendor-image-upload > label {
+    color: #244734;
+    font-weight: 700;
+}
+
+.vendor-upload-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 9px 12px;
+}
+
+.vendor-upload-tools button {
+    border: 1px solid #4d8a5e;
+    border-radius: 9px;
+    padding: 9px 12px;
+    background: #edf7ec;
+    color: #28613d;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.vendor-upload-tools span {
+    color: #6a7f70;
+    font-size: 0.76rem;
+}
+
+.vendor-image-preview {
+    width: min(180px, 100%);
+    height: 120px;
+    object-fit: cover;
+    border: 1px solid #d7e5d7;
+    border-radius: 12px;
+    background: #f6faf5;
+}
+
 .vendor-offer-content h3 {
     margin: 0;
     color: var(--vendor-ink);

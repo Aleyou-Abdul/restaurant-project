@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vendor Studio | HungerStation</title>
-    <link rel="stylesheet" href="style.css?v=hungerstation-vendor-preorders">
+    <link rel="stylesheet" href="style.css?v=hungerstation-vendor-image-upload">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="vendor-admin-body">
@@ -30,7 +30,16 @@
                     <label>Email<input id="vendor-email" type="email"></label>
                     <label>Area / address<input id="vendor-location"></label>
                     <p class="vendor-form-wide vendor-schedule-note">Home food vendors do not use daily opening hours. Set availability and preorder deadlines on each food offer below.</p>
-                    <label class="vendor-form-wide">Logo image path or URL<input id="vendor-logo-path" placeholder="images/logo.png or https://..."></label>
+                    <div class="vendor-form-wide vendor-image-upload">
+                        <label for="vendor-logo-path">Business logo</label>
+                        <input id="vendor-logo-path" placeholder="Upload from your device or paste an image URL">
+                        <div class="vendor-upload-tools">
+                            <button id="vendor-logo-upload-btn" type="button">Upload Logo From Device</button>
+                            <input id="vendor-logo-upload-input" type="file" accept="image/*" hidden>
+                            <span id="vendor-logo-upload-status">No logo uploaded yet.</span>
+                        </div>
+                        <img id="vendor-logo-preview" class="vendor-image-preview" alt="Business logo preview" hidden>
+                    </div>
                     <div class="vendor-form-wide"><button type="submit">Save Vendor Profile</button></div>
                 </form>
             </section>
@@ -43,7 +52,16 @@
                     <label>Category<input id="vendor-offer-category" required placeholder="e.g. Drinks"></label>
                     <label>Available from<input id="vendor-offer-available-from" type="datetime-local"></label>
                     <label>Pre-order closes<input id="vendor-offer-deadline" type="datetime-local"></label>
-                    <label class="vendor-form-wide">Food image path or URL<input id="vendor-offer-image" required placeholder="images/fura.png or https://..."></label>
+                    <div class="vendor-form-wide vendor-image-upload">
+                        <label for="vendor-offer-image">Food image</label>
+                        <input id="vendor-offer-image" required placeholder="Upload from your device or paste an image URL">
+                        <div class="vendor-upload-tools">
+                            <button id="vendor-offer-upload-btn" type="button">Upload Food Image From Device</button>
+                            <input id="vendor-offer-upload-input" type="file" accept="image/*" hidden>
+                            <span id="vendor-offer-upload-status">No food image uploaded yet.</span>
+                        </div>
+                        <img id="vendor-offer-preview" class="vendor-image-preview" alt="Food image preview" hidden>
+                    </div>
                     <div class="vendor-form-wide"><button type="submit">Publish Offer</button></div>
                 </form>
             </section>
@@ -59,6 +77,6 @@
             <div id="vendor-order-list" class="vendor-order-list"></div>
         </section>
     </main>
-    <script src="vendor-admin.js?v=hungerstation-vendor-deadlines"></script>
+    <script src="vendor-admin.js?v=hungerstation-vendor-image-upload"></script>
 </body>
 </html>
