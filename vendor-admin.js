@@ -176,6 +176,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById("vendor-offer-form").addEventListener("submit", async (event) => {
         event.preventDefault();
+        // Event.currentTarget is cleared after an awaited request in some browsers, so retain the form first.
+        const offerForm = event.currentTarget;
         const name = document.getElementById("vendor-offer-name").value.trim();
         const price = Number(document.getElementById("vendor-offer-price").value);
         const category = document.getElementById("vendor-offer-category").value.trim();
@@ -187,7 +189,7 @@ document.addEventListener("DOMContentLoaded", () => {
         siteData.menuItems = [...(siteData.menuItems || []), { id, name, price, category, image, availability: "available", stockQuantity: null, availableFrom, orderDeadline }];
         try {
             await saveSiteData("Food offer published.");
-            event.currentTarget.reset();
+            offerForm.reset();
             updateImagePreview(
                 document.getElementById("vendor-offer-image"),
                 document.getElementById("vendor-offer-preview"),
