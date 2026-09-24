@@ -31,7 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 const response = await fetch(path, { cache: "no-store" });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.message || "Could not load HungerStation data.");
+                if (!response.ok) throw new Error(data.message || "Could not load PlateRoute data.");
                 return data;
             } catch (error) {
                 lastError = error;
@@ -40,7 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         throw new Error(lastError && lastError.message !== "Failed to fetch"
             ? lastError.message
-            : "HungerStation is temporarily unavailable. Please refresh in a moment.");
+            : "PlateRoute is temporarily unavailable. Please refresh in a moment.");
     }
 
     function escapeHtml(value) {
@@ -82,7 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div class="restaurant-card-badges"><span class="business-type-badge${restaurant.businessType === "home-vendor" ? " is-vendor" : ""}">${escapeHtml(getBusinessTypeLabel(restaurant.businessType))}</span><span class="restaurant-open-badge">${restaurant.deliveryAvailable ? "Delivery available" : "Pickup only"}</span></div>
                     <h2>${escapeHtml(restaurant.name)}</h2>
                     <p>${escapeHtml(restaurant.address || "Address coming soon")}</p>
-                    <dl><div><dt>Opening hours</dt><dd>${escapeHtml(formatHours(restaurant))}</dd></div><div><dt>Rating</dt><dd>New on HungerStation</dd></div></dl>
+                    <dl><div><dt>Opening hours</dt><dd>${escapeHtml(formatHours(restaurant))}</dd></div><div><dt>Rating</dt><dd>New on PlateRoute</dd></div></dl>
                     <a href="index.html?restaurantId=${encodeURIComponent(restaurant.id)}">${isVendorDirectory ? "See Offers" : "View Menu"}</a>
                 </div>
             </article>`).join("") || `<p class="directory-empty">No ${isVendorDirectory ? "home food vendor" : "restaurant"} matches that search yet.</p>`;

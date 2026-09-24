@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HungerStation Platform Dashboard</title>
-    <link rel="stylesheet" href="style.css?v=hungerstation-phase1">
+    <title>PlateRoute Platform Dashboard</title>
+    <link rel="stylesheet" href="style.css?v=plateroute-phase1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="super-admin-body">
     <div class="super-dashboard">
         <aside class="super-sidebar">
-            <a class="super-brand" href="super-admin.html">Hunger<span>Station</span></a>
+            <a class="super-brand" href="super-admin.html">Plate<span>Route</span></a>
             <p>Platform control</p>
             <nav>
                 <a href="#overview">Overview</a>
@@ -24,7 +24,7 @@
         <main class="super-content">
             <header class="super-page-header">
                 <div>
-                    <span class="super-kicker">HungerStation Platform</span>
+                    <span class="super-kicker">PlateRoute Platform</span>
                     <h1>Platform Overview</h1>
                 </div>
                 <button id="super-admin-refresh-btn" class="super-secondary-btn" type="button">Refresh</button>
@@ -65,7 +65,7 @@
             </section>
 
             <section id="payment-settings" class="super-panel">
-                <div class="super-panel-heading"><div><h2>Restaurant Payment Settings</h2><p>Enter the restaurant&apos;s Paystack keys and split code. The split must send the HungerStation service fee to your Instant Tech subaccount.</p></div></div>
+                <div class="super-panel-heading"><div><h2>Restaurant Payment Settings</h2><p>Enter the restaurant&apos;s Paystack keys and split code. The split must send the PlateRoute service fee to your Instant Tech subaccount.</p></div></div>
                 <form id="restaurant-payment-form" class="super-form-grid">
                     <label class="super-form-wide">Restaurant<select id="payment-restaurant-id" name="restaurantId" required></select></label>
                     <label>Restaurant Paystack public key<input name="publicKey" placeholder="pk_live_..."></label>
@@ -79,7 +79,7 @@
             <section id="platform-settings" class="super-panel">
                 <div class="super-panel-heading"><div><h2>Platform Settings</h2><p>This service fee is recorded separately from restaurant food revenue.</p></div></div>
                 <form id="platform-settings-form" class="super-settings-form">
-                    <label>HungerStation service fee (₦)<input id="platform-service-fee" name="serviceFeeNaira" type="number" min="0" max="10000" step="1" required></label>
+                    <label>PlateRoute service fee (₦)<input id="platform-service-fee" name="serviceFeeNaira" type="number" min="0" max="10000" step="1" required></label>
                     <button type="submit">Save Fee</button>
                 </form>
             </section>

@@ -44,7 +44,11 @@ const defaultStaffUsername = process.env.STAFF_USERNAME || "";
 const defaultStaffDisplayName = process.env.STAFF_DISPLAY_NAME || "";
 const defaultStaffPassword = process.env.STAFF_PASSWORD || "";
 const defaultStaffPasswordHash = process.env.STAFF_PASSWORD_HASH || "";
-const demoHomeVendorName = process.env.HOME_VENDOR_DEMO_NAME || "HungerStation Home Food Demo";
+const configuredDemoHomeVendorName = String(process.env.HOME_VENDOR_DEMO_NAME || "").trim();
+// Preserve a restaurant owner's custom demo name, while upgrading the previous platform default.
+const demoHomeVendorName = configuredDemoHomeVendorName && configuredDemoHomeVendorName !== "HungerStation Home Food Demo"
+    ? configuredDemoHomeVendorName
+    : "PlateRoute Home Food Demo";
 const demoHomeVendorAdminUsername = process.env.HOME_VENDOR_DEMO_ADMIN_USERNAME || "";
 const demoHomeVendorAdminPassword = process.env.HOME_VENDOR_DEMO_ADMIN_PASSWORD || "";
 const demoHomeVendorAdminPasswordHash = process.env.HOME_VENDOR_DEMO_ADMIN_PASSWORD_HASH || "";
@@ -959,7 +963,7 @@ const server = http.createServer(async (req, res) => {
         const body = await readJsonBody(req);
         const normalizedData = normalizeSiteData(body);
         await saveSiteData(normalizedData, requestRestaurantId);
-        // Restaurant Admin owns the public profile details shown in the HungerStation directory.
+        // Restaurant Admin owns the public profile details shown in the PlateRoute directory.
         await updateRestaurantPublicProfile(requestRestaurantId, normalizedData.site);
         logServerEvent("info", "Site data updated.", { ip: clientIp });
         return sendJson(res, 200, {
@@ -2136,7 +2140,7 @@ async function ensurePlatformDefaults() {
     const now = new Date().toISOString();
     const defaults = [
         ["service_fee_naira", String(defaultPlatformServiceFeeNaira)],
-        ["platform_name", "HungerStation"],
+        ["platform_name", "PlateRoute"],
         ["platform_status", "active"]
     ];
 
@@ -2337,12 +2341,12 @@ async function ensureDemoHomeVendorSeed() {
         const siteData = createNewRestaurantSiteData();
         siteData.site = {
             ...siteData.site,
-            restaurantName: String(demoHomeVendorName).trim() || "HungerStation Home Food Demo",
+            restaurantName: demoHomeVendorName,
             phone: "08000000000",
-            email: "demo@hungerstation.ng",
+            email: "demo@plateroute.ng",
             location: "Kaduna, Nigeria",
             heroTitle: "Fresh home-made food, ready to order",
-            heroSubtitle: "A HungerStation Home Food Vendor demo."
+            heroSubtitle: "A PlateRoute Home Food Vendor demo."
         };
         siteData.categories = ["Home Made", "Snacks"];
         siteData.menuItems = [
@@ -2386,6 +2390,8 @@ async function ensureDemoHomeVendorSeed() {
             ) VALUES (?, ?, 'NGN', ?, ?)`,
             [demoHomeVendorId, Number(platformSettings.service_fee_naira || defaultPlatformServiceFeeNaira), now, now]
         );
+    } else {
+        await migrateLegacyDemoHomeVendorBrand(existingVendor);
     }
 
     // Recreate only the demo admin after a free Render reset; tenant data remains isolated.
@@ -2396,6 +2402,26 @@ async function ensureDemoHomeVendorSeed() {
         passwordHash,
         blocked: false
     });
+}
+
+async function migrateLegacyDemoHomeVendorBrand(existingVendor) {
+    const siteData = await readSiteData(demoHomeVendorId);
+    const site = siteData.site || {};
+    const hasLegacyName = site.restaurantName === "HungerStation Home Food Demo" || existingVendor.name === "HungerStation Home Food Demo";
+    const hasLegacySubtitle = site.heroSubtitle === "A HungerStation Home Food Vendor demo.";
+    const hasLegacyEmail = site.email === "demo@hungerstation.ng";
+
+    // Only upgrade the original demo defaults. A vendor's own edits always take priority.
+    if (!hasLegacyName && !hasLegacySubtitle && !hasLegacyEmail) return;
+
+    siteData.site = {
+        ...site,
+        restaurantName: hasLegacyName ? demoHomeVendorName : site.restaurantName,
+        email: hasLegacyEmail ? "demo@plateroute.ng" : site.email,
+        heroSubtitle: hasLegacySubtitle ? "A PlateRoute Home Food Vendor demo." : site.heroSubtitle
+    };
+    await saveSiteData(siteData, demoHomeVendorId);
+    await updateRestaurantPublicProfile(demoHomeVendorId, siteData.site);
 }
 
 async function findRestaurantAdminUser(username, restaurantId = defaultRestaurantId) {

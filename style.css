@@ -3327,7 +3327,7 @@ nav a:hover {
     transform: translateX(-50%) translateY(0);
 }
 
-/* HungerStation platform pages stay visually separate from restaurant operations screens. */
+/* PlateRoute platform pages stay visually separate from restaurant operations screens. */
 .super-admin-body {
     min-height: 100vh;
     margin: 0;

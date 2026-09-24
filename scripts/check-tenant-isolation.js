@@ -213,6 +213,7 @@ async function main() {
         );
 
         const publicRestaurants = await request(port, "/api/restaurants");
+        assert.equal(publicRestaurants.data.platformSettings.platform_name, "PlateRoute", "New deployments should use the PlateRoute platform name.");
         const publicRestaurantA = publicRestaurants.data.restaurants.find((restaurant) => restaurant.id === restaurantA.id);
         const publicRestaurantB = publicRestaurants.data.restaurants.find((restaurant) => restaurant.id === restaurantB.id);
         assert.equal(publicRestaurantA.openingTime, "10:30", "Restaurant Admin opening time should update its public listing.");

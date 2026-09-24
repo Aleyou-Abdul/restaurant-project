@@ -1,4 +1,6 @@
-# Restaurant Ordering System
+# PlateRoute Restaurant Ordering Platform
+
+PlateRoute is a multi-restaurant ordering platform by Instant Tech Solution.
 
 This project is a restaurant ordering system with:
 
@@ -20,7 +22,7 @@ This project is a restaurant ordering system with:
 - `staff.html`: limited staff dashboard for orders and stock
 - `instant-tech-solution.html`: company profile page
 
-## HungerStation Discovery
+## PlateRoute Discovery
 
 - `restaurants.html`: public directory of approved restaurants.
 - Customers can search restaurants, search food across approved restaurants, filter food by category, and open the correct restaurant menu to order.
@@ -195,7 +197,7 @@ To add an isolated Home Food Vendor demo, set `HOME_VENDOR_DEMO_ADMIN_USERNAME` 
 
 Payments are intentionally blocked unless `PAYSTACK_SPLIT_CODE` is configured. This enforces the service-fee split before any restaurant can accept orders through the system.
 
-## HungerStation Phase 1
+## PlateRoute Phase 1
 
 The platform foundation adds isolated restaurant records, restaurant-specific admin accounts, and a protected Super Admin workspace at `/super-admin-login.html`.
 
