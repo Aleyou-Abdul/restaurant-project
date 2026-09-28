@@ -3850,8 +3850,8 @@ function serveStaticFile(req, requestPath, res) {
 
         const ext = path.extname(filePath).toLowerCase();
         const etag = `"${stats.size}-${Math.floor(stats.mtimeMs)}"`;
-        const isHtmlFile = ext === ".html";
-        const cacheControl = isHtmlFile
+        const shouldRevalidate = ext === ".html" || ext === ".js" || ext === ".css";
+        const cacheControl = shouldRevalidate
             ? "no-cache"
             : "public, max-age=86400";
 

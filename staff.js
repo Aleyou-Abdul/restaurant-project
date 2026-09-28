@@ -26,6 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let audioPrimed = false;
     let staffAudioContext = null;
     let audioUnlockPromise = null;
+    let lastSoundButtonActivationAt = 0;
     let stockEditHoldUntil = 0;
     let activeSectionName = "orders";
 
@@ -283,6 +284,17 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
         return audioUnlockPromise;
+    }
+
+    function testOrderSoundFromButton() {
+        const now = Date.now();
+
+        // A touch creates both pointerdown and click events. Test the sound only once.
+        if (now - lastSoundButtonActivationAt < 700) return;
+        lastSoundButtonActivationAt = now;
+
+        staffEnableOrderSoundBtn.textContent = "Testing sound...";
+        primeAudio(true);
     }
 
     function buildReceipt(order) {
@@ -680,9 +692,9 @@ document.addEventListener("DOMContentLoaded", () => {
         staffNotificationPanelEl.hidden = !isHidden;
     });
 
-    staffEnableOrderSoundBtn.addEventListener("click", () => {
-        primeAudio(true);
-    });
+    // Use pointerdown because iOS grants audio permission at the first physical touch.
+    staffEnableOrderSoundBtn.addEventListener("pointerdown", testOrderSoundFromButton);
+    staffEnableOrderSoundBtn.addEventListener("click", testOrderSoundFromButton);
 
     document.addEventListener("click", (event) => {
         const wrap = event.target.closest(".admin-notification-wrap");
