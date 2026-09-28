@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const adminNotificationLabelEl = document.getElementById("admin-notification-label");
     const adminNotificationPanelEl = document.getElementById("admin-notification-panel");
     const adminNotificationListEl = document.getElementById("admin-notification-list");
+    const adminEnableOrderSoundBtn = document.getElementById("admin-enable-order-sound-btn");
     const siteLogoPathEl = document.getElementById("site-logo-path");
     const siteLogoUploadBtn = document.getElementById("site-logo-upload-btn");
     const siteLogoUploadInputEl = document.getElementById("site-logo-upload-input");
@@ -64,6 +65,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const printerTestBtn = document.getElementById("site-printer-test-btn");
 
     let ordersCache = [];
+    let adminAudioContext = null;
+    let audioPrimed = false;
+    let audioUnlockPromise = null;
+    let shouldPlayUnlockPreview = false;
     let previousPendingCount = 0;
     let hasLoadedOrdersOnce = false;
     let autoRefreshTimerId = null;
@@ -935,14 +940,77 @@ document.addEventListener("DOMContentLoaded", () => {
         openPrintDocument(getReceiptPrintDocument(testOrder));
     }
 
-    function playNewOrderAlert() {
+    function getAdminAudioContext() {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 
         if (!AudioContextClass) {
+            return null;
+        }
+
+        if (!adminAudioContext) {
+            adminAudioContext = new AudioContextClass();
+            adminAudioContext.addEventListener("statechange", () => {
+                const isRunning = adminAudioContext && adminAudioContext.state === "running";
+                audioPrimed = Boolean(isRunning);
+                updateOrderSoundButton(audioPrimed);
+            });
+        }
+
+        return adminAudioContext;
+    }
+
+    function updateOrderSoundButton(isEnabled) {
+        if (!adminEnableOrderSoundBtn) return;
+
+        adminEnableOrderSoundBtn.textContent = isEnabled ? "Order sound on" : "Enable order sound";
+        adminEnableOrderSoundBtn.classList.toggle("is-enabled", isEnabled);
+        adminEnableOrderSoundBtn.setAttribute("aria-pressed", String(isEnabled));
+    }
+
+    function enableOrderSound(playPreview = false) {
+        shouldPlayUnlockPreview = shouldPlayUnlockPreview || playPreview;
+        const audioContext = getAdminAudioContext();
+
+        if (!audioContext) {
+            if (adminEnableOrderSoundBtn) {
+                adminEnableOrderSoundBtn.textContent = "Sound unavailable";
+                adminEnableOrderSoundBtn.disabled = true;
+            }
+            return Promise.resolve();
+        }
+
+        if (audioUnlockPromise) return audioUnlockPromise;
+
+        audioUnlockPromise = (audioContext.state === "running" ? Promise.resolve() : audioContext.resume())
+            .then(() => {
+                audioPrimed = audioContext.state === "running";
+                updateOrderSoundButton(audioPrimed);
+
+                if (audioPrimed && shouldPlayUnlockPreview) {
+                    shouldPlayUnlockPreview = false;
+                    playNewOrderAlert();
+                }
+            })
+            .catch(() => {
+                audioPrimed = false;
+                updateOrderSoundButton(false);
+            })
+            .finally(() => {
+                audioUnlockPromise = null;
+            });
+
+        return audioUnlockPromise;
+    }
+
+    function playNewOrderAlert() {
+        const audioContext = getAdminAudioContext();
+
+        if (!audioPrimed || !audioContext || audioContext.state !== "running") {
+            audioPrimed = false;
+            updateOrderSoundButton(false);
             return;
         }
 
-        const audioContext = new AudioContextClass();
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
 
@@ -957,11 +1025,6 @@ document.addEventListener("DOMContentLoaded", () => {
         oscillator.start();
         oscillator.stop(audioContext.currentTime + 0.5);
 
-        oscillator.onended = () => {
-            audioContext.close().catch(() => {
-                // Ignore audio cleanup errors.
-            });
-        };
     }
 
     function createOrderActions(order) {
@@ -1338,8 +1401,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     adminNotificationBtn.addEventListener("click", () => {
+        enableOrderSound();
         const isHidden = adminNotificationPanelEl.hidden;
         adminNotificationPanelEl.hidden = !isHidden;
+    });
+
+    adminEnableOrderSoundBtn.addEventListener("click", () => {
+        enableOrderSound(true);
     });
 
     document.addEventListener("click", (event) => {
@@ -1355,6 +1423,10 @@ document.addEventListener("DOMContentLoaded", () => {
             autoRefreshOrders();
         }
     });
+
+    // Mobile browsers only allow audio after an interaction on this dashboard.
+    document.addEventListener("pointerdown", () => enableOrderSound(), { once: true });
+    document.addEventListener("keydown", () => enableOrderSound(), { once: true });
 
     adminLogoutBtn.addEventListener("click", async () => {
         try {

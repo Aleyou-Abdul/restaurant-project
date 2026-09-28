@@ -8,6 +8,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const staffNotificationLabelEl = document.getElementById("staff-notification-label");
     const staffNotificationPanelEl = document.getElementById("staff-notification-panel");
     const staffNotificationListEl = document.getElementById("staff-notification-list");
+    const staffEnableOrderSoundBtn = document.getElementById("staff-enable-order-sound-btn");
     const staffRefreshBtn = document.getElementById("staff-refresh-btn");
     const staffLogoutBtn = document.getElementById("staff-logout-btn");
     const staffOrdersBodyEl = document.getElementById("staff-orders-body");
@@ -24,6 +25,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let isAutoRefreshing = false;
     let audioPrimed = false;
     let staffAudioContext = null;
+    let audioUnlockPromise = null;
+    let shouldPlayUnlockPreview = false;
     let stockEditHoldUntil = 0;
     let activeSectionName = "orders";
 
@@ -174,20 +177,12 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function playNewOrderAlert() {
-        if (!audioPrimed && !(navigator.userActivation && navigator.userActivation.hasBeenActive)) {
-            return;
-        }
-
         const audioContext = getStaffAudioContext();
 
-        if (!audioContext) {
+        if (!audioPrimed || !audioContext || audioContext.state !== "running") {
+            audioPrimed = false;
+            updateOrderSoundButton(false);
             return;
-        }
-
-        if (audioContext.state === "suspended") {
-            audioContext.resume().catch(() => {
-                // Mobile browsers may reject resume outside a direct tap.
-            });
         }
 
         const masterGain = audioContext.createGain();
@@ -232,20 +227,57 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!staffAudioContext) {
             staffAudioContext = new AudioContextClass();
+            staffAudioContext.addEventListener("statechange", () => {
+                const isRunning = staffAudioContext && staffAudioContext.state === "running";
+                audioPrimed = Boolean(isRunning);
+                updateOrderSoundButton(audioPrimed);
+            });
         }
 
         return staffAudioContext;
     }
 
-    function primeAudio() {
-        audioPrimed = true;
+    function updateOrderSoundButton(isEnabled) {
+        if (!staffEnableOrderSoundBtn) return;
+
+        staffEnableOrderSoundBtn.textContent = isEnabled ? "Order sound on" : "Enable order sound";
+        staffEnableOrderSoundBtn.classList.toggle("is-enabled", isEnabled);
+        staffEnableOrderSoundBtn.setAttribute("aria-pressed", String(isEnabled));
+    }
+
+    function primeAudio(playPreview = false) {
+        shouldPlayUnlockPreview = shouldPlayUnlockPreview || playPreview;
         const audioContext = getStaffAudioContext();
 
-        if (audioContext && audioContext.state === "suspended") {
-            audioContext.resume().catch(() => {
-                // The next user tap can try again.
-            });
+        if (!audioContext) {
+            if (staffEnableOrderSoundBtn) {
+                staffEnableOrderSoundBtn.textContent = "Sound unavailable";
+                staffEnableOrderSoundBtn.disabled = true;
+            }
+            return Promise.resolve();
         }
+
+        if (audioUnlockPromise) return audioUnlockPromise;
+
+        audioUnlockPromise = (audioContext.state === "running" ? Promise.resolve() : audioContext.resume())
+            .then(() => {
+                audioPrimed = audioContext.state === "running";
+                updateOrderSoundButton(audioPrimed);
+
+                if (audioPrimed && shouldPlayUnlockPreview) {
+                    shouldPlayUnlockPreview = false;
+                    playNewOrderAlert();
+                }
+            })
+            .catch(() => {
+                audioPrimed = false;
+                updateOrderSoundButton(false);
+            })
+            .finally(() => {
+                audioUnlockPromise = null;
+            });
+
+        return audioUnlockPromise;
     }
 
     function buildReceipt(order) {
@@ -643,6 +675,10 @@ document.addEventListener("DOMContentLoaded", () => {
         staffNotificationPanelEl.hidden = !isHidden;
     });
 
+    staffEnableOrderSoundBtn.addEventListener("click", () => {
+        primeAudio(true);
+    });
+
     document.addEventListener("click", (event) => {
         const wrap = event.target.closest(".admin-notification-wrap");
 
@@ -657,8 +693,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    document.addEventListener("pointerdown", primeAudio, { once: true });
-    document.addEventListener("keydown", primeAudio, { once: true });
+    // Mobile browsers only allow audio after an interaction on this dashboard.
+    document.addEventListener("pointerdown", () => primeAudio(), { once: true });
+    document.addEventListener("keydown", () => primeAudio(), { once: true });
     staffStockListEl.addEventListener("focusin", markStockEditing);
     staffStockListEl.addEventListener("input", markStockEditing);
 
