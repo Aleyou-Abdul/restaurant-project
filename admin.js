@@ -68,7 +68,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let adminAudioContext = null;
     let audioPrimed = false;
     let audioUnlockPromise = null;
-    let shouldPlayUnlockPreview = false;
     let previousPendingCount = 0;
     let hasLoadedOrdersOnce = false;
     let autoRefreshTimerId = null;
@@ -962,13 +961,12 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateOrderSoundButton(isEnabled) {
         if (!adminEnableOrderSoundBtn) return;
 
-        adminEnableOrderSoundBtn.textContent = isEnabled ? "Order sound on" : "Enable order sound";
+        adminEnableOrderSoundBtn.textContent = isEnabled ? "Order sound on" : "Enable and test sound";
         adminEnableOrderSoundBtn.classList.toggle("is-enabled", isEnabled);
         adminEnableOrderSoundBtn.setAttribute("aria-pressed", String(isEnabled));
     }
 
     function enableOrderSound(playPreview = false) {
-        shouldPlayUnlockPreview = shouldPlayUnlockPreview || playPreview;
         const audioContext = getAdminAudioContext();
 
         if (!audioContext) {
@@ -979,21 +977,24 @@ document.addEventListener("DOMContentLoaded", () => {
             return Promise.resolve();
         }
 
+        // Queue the test tone while this button tap is still a trusted mobile browser action.
+        // Waiting for resume() to resolve can lose that permission on iOS and Android.
+        if (playPreview) {
+            playNewOrderAlert({ allowSuspendedContext: true });
+        }
+
         if (audioUnlockPromise) return audioUnlockPromise;
 
         audioUnlockPromise = (audioContext.state === "running" ? Promise.resolve() : audioContext.resume())
             .then(() => {
                 audioPrimed = audioContext.state === "running";
                 updateOrderSoundButton(audioPrimed);
-
-                if (audioPrimed && shouldPlayUnlockPreview) {
-                    shouldPlayUnlockPreview = false;
-                    playNewOrderAlert();
-                }
+                if (playPreview && audioPrimed) setStatus("Order sound is enabled.", "success");
             })
             .catch(() => {
                 audioPrimed = false;
                 updateOrderSoundButton(false);
+                if (playPreview) setStatus("Your browser blocked sound. Tap this button again with the dashboard open.", "error");
             })
             .finally(() => {
                 audioUnlockPromise = null;
@@ -1002,10 +1003,14 @@ document.addEventListener("DOMContentLoaded", () => {
         return audioUnlockPromise;
     }
 
-    function playNewOrderAlert() {
+    function playNewOrderAlert({ allowSuspendedContext = false } = {}) {
         const audioContext = getAdminAudioContext();
+        const canScheduleTone = audioContext && (
+            audioContext.state === "running" ||
+            (allowSuspendedContext && audioContext.state === "suspended")
+        );
 
-        if (!audioPrimed || !audioContext || audioContext.state !== "running") {
+        if ((!audioPrimed && !allowSuspendedContext) || !canScheduleTone) {
             audioPrimed = false;
             updateOrderSoundButton(false);
             return;

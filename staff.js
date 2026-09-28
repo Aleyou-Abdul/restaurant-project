@@ -26,7 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let audioPrimed = false;
     let staffAudioContext = null;
     let audioUnlockPromise = null;
-    let shouldPlayUnlockPreview = false;
     let stockEditHoldUntil = 0;
     let activeSectionName = "orders";
 
@@ -176,10 +175,14 @@ document.addEventListener("DOMContentLoaded", () => {
         return order && order.fulfillmentType === "pickup" ? "Pickup" : "Delivery";
     }
 
-    function playNewOrderAlert() {
+    function playNewOrderAlert({ allowSuspendedContext = false } = {}) {
         const audioContext = getStaffAudioContext();
+        const canScheduleTone = audioContext && (
+            audioContext.state === "running" ||
+            (allowSuspendedContext && audioContext.state === "suspended")
+        );
 
-        if (!audioPrimed || !audioContext || audioContext.state !== "running") {
+        if ((!audioPrimed && !allowSuspendedContext) || !canScheduleTone) {
             audioPrimed = false;
             updateOrderSoundButton(false);
             return;
@@ -240,13 +243,12 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateOrderSoundButton(isEnabled) {
         if (!staffEnableOrderSoundBtn) return;
 
-        staffEnableOrderSoundBtn.textContent = isEnabled ? "Order sound on" : "Enable order sound";
+        staffEnableOrderSoundBtn.textContent = isEnabled ? "Order sound on" : "Enable and test sound";
         staffEnableOrderSoundBtn.classList.toggle("is-enabled", isEnabled);
         staffEnableOrderSoundBtn.setAttribute("aria-pressed", String(isEnabled));
     }
 
     function primeAudio(playPreview = false) {
-        shouldPlayUnlockPreview = shouldPlayUnlockPreview || playPreview;
         const audioContext = getStaffAudioContext();
 
         if (!audioContext) {
@@ -257,21 +259,24 @@ document.addEventListener("DOMContentLoaded", () => {
             return Promise.resolve();
         }
 
+        // Queue the test tone while this button tap is still a trusted mobile browser action.
+        // Waiting for resume() to resolve can lose that permission on iOS and Android.
+        if (playPreview) {
+            playNewOrderAlert({ allowSuspendedContext: true });
+        }
+
         if (audioUnlockPromise) return audioUnlockPromise;
 
         audioUnlockPromise = (audioContext.state === "running" ? Promise.resolve() : audioContext.resume())
             .then(() => {
                 audioPrimed = audioContext.state === "running";
                 updateOrderSoundButton(audioPrimed);
-
-                if (audioPrimed && shouldPlayUnlockPreview) {
-                    shouldPlayUnlockPreview = false;
-                    playNewOrderAlert();
-                }
+                if (playPreview && audioPrimed) setStatus("Order sound is enabled.", "success");
             })
             .catch(() => {
                 audioPrimed = false;
                 updateOrderSoundButton(false);
+                if (playPreview) setStatus("Your browser blocked sound. Tap this button again with the dashboard open.", "error");
             })
             .finally(() => {
                 audioUnlockPromise = null;
