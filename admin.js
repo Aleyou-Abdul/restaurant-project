@@ -66,6 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let ordersCache = [];
     let adminAudioContext = null;
+    let adminAudioKeepAlive = null;
     let audioPrimed = false;
     let audioUnlockPromise = null;
     let lastSoundButtonActivationAt = 0;
@@ -947,16 +948,56 @@ document.addEventListener("DOMContentLoaded", () => {
             return null;
         }
 
-        if (!adminAudioContext) {
-            adminAudioContext = new AudioContextClass();
-            adminAudioContext.addEventListener("statechange", () => {
-                const isRunning = adminAudioContext && adminAudioContext.state === "running";
+        if (!adminAudioContext || adminAudioContext.state === "closed") {
+            const audioContext = new AudioContextClass();
+            adminAudioContext = audioContext;
+            audioContext.addEventListener("statechange", () => {
+                if (adminAudioContext !== audioContext) return;
+
+                const isRunning = audioContext.state === "running";
                 audioPrimed = Boolean(isRunning);
                 updateOrderSoundButton(audioPrimed);
+                if (isRunning) startAdminAudioKeepAlive();
             });
         }
 
         return adminAudioContext;
+    }
+
+    function startAdminAudioKeepAlive() {
+        const audioContext = adminAudioContext;
+
+        if (!audioPrimed || !audioContext || audioContext.state !== "running" || adminAudioKeepAlive) return;
+
+        // Keeps an already-approved iPhone audio context ready without producing audible sound.
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.setValueAtTime(1, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0.00001, audioContext.currentTime);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.start();
+        adminAudioKeepAlive = { oscillator, gainNode };
+    }
+
+    function resetAdminAudioContext() {
+        const previousContext = adminAudioContext;
+
+        if (adminAudioKeepAlive) {
+            try { adminAudioKeepAlive.oscillator.stop(); } catch (error) { /* Already stopped. */ }
+            adminAudioKeepAlive = null;
+        }
+
+        adminAudioContext = null;
+        audioUnlockPromise = null;
+        audioPrimed = false;
+
+        if (previousContext && previousContext.state !== "closed") {
+            previousContext.close().catch(() => {
+                // A paused mobile context can be discarded safely.
+            });
+        }
     }
 
     function updateOrderSoundButton(isEnabled) {
@@ -968,7 +1009,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function enableOrderSound(playPreview = false) {
-        const audioContext = getAdminAudioContext();
+        let audioContext = getAdminAudioContext();
+
+        // Safari can leave an inactive context suspended for a long time. A fresh one starts immediately during this tap.
+        if (playPreview && (audioContext.state === "suspended" || audioContext.state === "interrupted")) {
+            resetAdminAudioContext();
+            audioContext = getAdminAudioContext();
+        }
 
         if (!audioContext) {
             if (adminEnableOrderSoundBtn) {
@@ -986,22 +1033,30 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (audioUnlockPromise) return audioUnlockPromise;
 
-        audioUnlockPromise = (audioContext.state === "running" ? Promise.resolve() : audioContext.resume())
+        const unlockPromise = (audioContext.state === "running" ? Promise.resolve() : audioContext.resume())
             .then(() => {
+                if (adminAudioContext !== audioContext) return;
+
                 audioPrimed = audioContext.state === "running";
                 updateOrderSoundButton(audioPrimed);
+                if (audioPrimed) startAdminAudioKeepAlive();
                 if (playPreview && audioPrimed) setStatus("Order sound is enabled.", "success");
             })
             .catch(() => {
+                if (adminAudioContext !== audioContext) return;
+
                 audioPrimed = false;
                 updateOrderSoundButton(false);
                 if (playPreview) setStatus("Your browser blocked sound. Tap this button again with the dashboard open.", "error");
             })
             .finally(() => {
-                audioUnlockPromise = null;
+                if (audioUnlockPromise === unlockPromise) {
+                    audioUnlockPromise = null;
+                }
             });
 
-        return audioUnlockPromise;
+        audioUnlockPromise = unlockPromise;
+        return unlockPromise;
     }
 
     function testOrderSoundFromButton() {
