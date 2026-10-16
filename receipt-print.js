@@ -48,29 +48,32 @@
     const isReceipt = Boolean(receiptShell);
     const paperWidth = Number(receiptShell && receiptShell.dataset.paperWidth) === 58 ? 58 : 80;
     const defaultContentWidth = paperWidth === 58 ? 50 : 72;
-    const contentWidth = Math.min(
+    const configuredContentWidth = Math.min(
         Math.max(Number(receiptShell && receiptShell.dataset.contentWidth) || defaultContentWidth, 30),
         paperWidth === 58 ? 54 : 76
     );
     const printScale = Math.min(Math.max(Number(receiptShell && receiptShell.dataset.printScale) || 0.9, 0.6), 1);
-    const scaledLayoutWidth = Math.ceil((contentWidth / printScale) * 100) / 100;
+    // Thermal printers cannot use the entire roll width. Keep a safe edge so the price column never prints off the right.
+    const contentWidth = Math.min(configuredContentWidth, paperWidth === 58 ? 48 : 68);
+    const horizontalPadding = paperWidth === 58 ? 3 : 4;
     const pageStyle = document.createElement("style");
 
     function getReceiptPageStyle(heightMm) {
         return `
-            @page { size: ${paperWidth}mm ${heightMm}mm; margin: 1mm; }
-            html, body { width: ${paperWidth}mm; min-width: ${paperWidth}mm; max-width: ${paperWidth}mm; margin: 0; background: #fff; overflow: visible; }
-            #print-root { width: ${paperWidth}mm; margin: 0; padding: 0; overflow: visible; }
+            @page { size: ${paperWidth}mm ${heightMm}mm; margin: 0; }
+            html, body { box-sizing: border-box; width: ${paperWidth}mm; min-width: ${paperWidth}mm; max-width: ${paperWidth}mm; margin: 0; padding: 0; background: #fff; overflow: visible; }
+            #print-root { box-sizing: border-box; width: ${paperWidth}mm; margin: 0; padding: 1mm ${horizontalPadding}mm 2mm; overflow: visible; }
             #print-root .print-shell {
-                width: ${scaledLayoutWidth}mm !important;
-                max-width: ${scaledLayoutWidth}mm !important;
-                margin: 0 !important;
-                transform: scale(${printScale}) !important;
-                transform-origin: top left !important;
+                box-sizing: border-box;
+                width: ${contentWidth}mm !important;
+                max-width: ${contentWidth}mm !important;
+                margin: 0 auto !important;
+                transform: none !important;
+                zoom: ${printScale} !important;
             }
             @media print {
                 html, body { width: ${paperWidth}mm !important; min-width: ${paperWidth}mm !important; max-width: ${paperWidth}mm !important; }
-                #print-root { width: ${paperWidth}mm !important; max-width: ${paperWidth}mm !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; }
+                #print-root { width: ${paperWidth}mm !important; max-width: ${paperWidth}mm !important; margin: 0 !important; padding: 1mm ${horizontalPadding}mm 2mm !important; overflow: visible !important; }
             }
         `;
     }
@@ -149,10 +152,14 @@
 
     window.addEventListener("afterprint", completePrint);
 
+    const waitForFonts = document.fonts && document.fonts.ready
+        ? document.fonts.ready.catch(() => undefined)
+        : Promise.resolve();
+
     Promise.race([
-        waitForImages(),
-        new Promise((resolve) => window.setTimeout(resolve, 350))
+        Promise.all([waitForImages(), waitForFonts]),
+        new Promise((resolve) => window.setTimeout(resolve, 1000))
     ]).then(() => {
-        window.requestAnimationFrame(() => window.setTimeout(printSoon, 50));
+        window.requestAnimationFrame(() => window.requestAnimationFrame(printSoon));
     });
 })();
