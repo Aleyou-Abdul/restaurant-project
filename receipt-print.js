@@ -2,8 +2,10 @@
     const params = new URLSearchParams(window.location.search);
     const key = params.get("key");
     const returnUrl = params.get("return") || "";
+    const isEmbeddedPrint = params.get("embedded") === "1";
     const storageKey = key ? `printDocument:${key}` : "";
     const root = document.getElementById("print-root");
+    let printFinished = false;
 
     function showError(message) {
         root.className = "print-error";
@@ -119,20 +121,33 @@
     function printSoon() {
         updateReceiptPaperHeight();
         window.print();
-        window.setTimeout(() => {
-            localStorage.removeItem(storageKey);
-        }, 1000);
     }
 
-    window.addEventListener("afterprint", () => {
+    function completePrint() {
+        if (printFinished) {
+            return;
+        }
+
+        printFinished = true;
         localStorage.removeItem(storageKey);
+
+        // The dashboard uses an invisible frame so printing never replaces the active work screen.
+        if (isEmbeddedPrint) {
+            window.parent.postMessage({
+                type: "plateroute-receipt-print-complete",
+                key
+            }, window.location.origin);
+            return;
+        }
 
         if (returnUrl) {
             window.setTimeout(() => {
                 window.location.href = returnUrl;
             }, 250);
         }
-    });
+    }
+
+    window.addEventListener("afterprint", completePrint);
 
     Promise.race([
         waitForImages(),

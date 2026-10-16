@@ -1569,6 +1569,18 @@ nav a:hover {
     flex-wrap: wrap;
 }
 
+/* Keeps POS receipt printing off-screen without hiding its rendered content from the browser print engine. */
+.background-receipt-print-frame {
+    position: fixed;
+    top: -10000px;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    border: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
 #print-receipt-btn {
     background: linear-gradient(45deg, #1a4d7a, #2b79b9);
 }

@@ -428,15 +428,53 @@ document.addEventListener("DOMContentLoaded", () => {
         return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Receipt ${escapeHtml(order.reference || "-")}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css?v=20260512e"><style>@page{size:${printer.paperWidth}mm 297mm;margin:1mm}body{width:${printer.paperWidth}mm;margin:0 auto;padding:0;background:#fff;color:#111;font-family:Poppins,Arial,sans-serif}.print-shell{width:${printer.contentWidth}mm;margin:0 auto;zoom:${printer.scale}}.print-shell .receipt-card{margin-top:0;padding:5px 5px 3px;border:none;border-radius:0;background:#fcfcfc;box-shadow:none}.print-shell .receipt-pos{width:min(100%,280px);gap:3px;font-size:10px}.print-shell .receipt-logo{width:50px;height:50px;margin:0 auto 3px}.print-shell .receipt-thermal-brand h4{font-size:13px;line-height:1}.print-shell .receipt-thermal-contact{font-size:8px;line-height:1.05}.print-shell .receipt-kicker{margin-top:1px;font-size:8px;letter-spacing:.06em}.print-shell .receipt-divider{margin:3px 0}.print-shell .receipt-thermal-title{font-size:14px;margin:1px 0}.print-shell .receipt-thermal-meta{font-size:8px;gap:3px}.print-shell .receipt-thermal-table-head,.print-shell .receipt-thermal-item{grid-template-columns:24px 1fr auto;gap:4px}.print-shell .receipt-thermal-table-head{font-size:8px}.print-shell .receipt-thermal-item{padding:2px 0;font-size:9px}.print-shell .receipt-thermal-count{margin:3px 0;font-size:9px}.print-shell .receipt-breakdown{gap:1px}.print-shell .receipt-breakdown p{font-size:9px;gap:4px}.print-shell .receipt-total-row{margin-top:3px;padding-top:3px;font-size:12px;gap:4px}.print-shell .receipt-total-row strong{font-size:16px}.print-shell .receipt-thermal-details{gap:1px}.print-shell .receipt-thermal-details p{font-size:8px;gap:3px;line-height:1}.print-shell .receipt-thank-you{margin:4px 0 3px;font-size:12px}.receipt-footer-meta{margin-top:3px;padding-top:3px;border-top:1px dashed #777;display:flex;justify-content:space-between;gap:3px;font-size:7px;font-family:'Courier New',monospace;page-break-inside:avoid}.receipt-footer-meta span:last-child{text-align:right}@media print{body{width:${printer.paperWidth}mm;padding:0}.print-shell{width:${printer.contentWidth}mm;zoom:${printer.scale}}}</style></head><body><div class="print-shell" data-paper-width="${printer.paperWidth}" data-content-width="${printer.contentWidth}" data-print-scale="${printer.scale}"><section class="receipt-card">${buildReceipt(order)}<div class="receipt-footer-meta"><span>${escapeHtml(order.reference || "-")}</span><span>${escapeHtml(order.date || "-")}</span></div></section></div></body></html>`;
     }
 
-    function openPrintDocument(documentMarkup) {
+    function openPrintDocument(documentMarkup, options = {}) {
         const key = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
         const returnUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
         localStorage.setItem(`printDocument:${key}`, documentMarkup);
+
+        if (options.backgroundReceipt) {
+            sendReceiptToPrinter(key);
+            return;
+        }
+
         window.location.href = `receipt-print.html?key=${encodeURIComponent(key)}&return=${encodeURIComponent(returnUrl)}`;
     }
 
+    function sendReceiptToPrinter(key) {
+        const printFrame = document.createElement("iframe");
+        const timeoutId = window.setTimeout(cleanup, 60000);
+
+        printFrame.className = "background-receipt-print-frame";
+        printFrame.setAttribute("aria-hidden", "true");
+        printFrame.src = `receipt-print.html?key=${encodeURIComponent(key)}&embedded=1`;
+
+        function cleanup() {
+            window.clearTimeout(timeoutId);
+            window.removeEventListener("message", onPrintMessage);
+            printFrame.remove();
+        }
+
+        function onPrintMessage(event) {
+            if (event.origin !== window.location.origin) {
+                return;
+            }
+
+            if (event.data?.type !== "plateroute-receipt-print-complete" || event.data.key !== key) {
+                return;
+            }
+
+            cleanup();
+            setStatus("Receipt sent to the printer.", "success");
+        }
+
+        window.addEventListener("message", onPrintMessage);
+        document.body.appendChild(printFrame);
+        setStatus("Sending thermal receipt to the default printer...", "info");
+    }
+
     function printReceipt(order) {
-        openPrintDocument(getReceiptPrintDocument(order));
+        openPrintDocument(getReceiptPrintDocument(order), { backgroundReceipt: true });
     }
 
     async function updateOrderStatus(reference, status) {
