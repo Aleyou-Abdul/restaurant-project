@@ -4,6 +4,7 @@ const fs = require("fs/promises");
 const net = require("net");
 const os = require("os");
 const path = require("path");
+const sqlite3 = require("sqlite3");
 
 const rootDir = path.resolve(__dirname, "..");
 
@@ -46,6 +47,37 @@ async function request(port, route, options = {}, cookie = "") {
     const data = await response.json();
     const setCookie = response.headers.get("set-cookie");
     return { status: response.status, data, cookie: setCookie ? setCookie.split(";")[0] : "" };
+}
+
+function insertOrderFixture(databaseFile, order) {
+    return new Promise((resolve, reject) => {
+        const database = new sqlite3.Database(databaseFile, (openError) => {
+            if (openError) reject(openError);
+        });
+        const createdAt = order.date || new Date().toISOString();
+
+        database.run(
+            `INSERT INTO orders (reference, payload, paid_at, created_at, status, restaurant_id)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [
+                order.reference,
+                JSON.stringify(order),
+                order.paidAt || createdAt,
+                createdAt,
+                order.status || "Paid",
+                order.restaurantId
+            ],
+            (insertError) => {
+                database.close((closeError) => {
+                    if (insertError || closeError) {
+                        reject(insertError || closeError);
+                        return;
+                    }
+                    resolve();
+                });
+            }
+        );
+    });
 }
 
 async function main() {
@@ -145,6 +177,82 @@ async function main() {
             })
         }, adminALogin.cookie);
         assert.equal(tenantAMenuSave.status, 200, "Tenant A admin should be able to save its own menu.");
+
+        const createStaffUser = async (username, displayName) => {
+            const response = await request(port, `/api/admin/users?restaurantId=${encodeURIComponent(restaurantA.id)}`, {
+                method: "POST",
+                body: JSON.stringify({ username, displayName, password: "staff-password" })
+            }, adminALogin.cookie);
+            assert.equal(response.status, 200, `${displayName} should be created as Tenant A staff.`);
+        };
+
+        await createStaffUser("tenant-a-staff-one", "Staff One");
+        await createStaffUser("tenant-a-staff-two", "Staff Two");
+
+        const staffOneLogin = await request(port, `/api/staff/login?restaurantId=${encodeURIComponent(restaurantA.id)}`, {
+            method: "POST",
+            body: JSON.stringify({
+                username: "tenant-a-staff-one",
+                password: "staff-password",
+                restaurantId: restaurantA.id
+            })
+        });
+        const staffTwoLogin = await request(port, `/api/staff/login?restaurantId=${encodeURIComponent(restaurantA.id)}`, {
+            method: "POST",
+            body: JSON.stringify({
+                username: "tenant-a-staff-two",
+                password: "staff-password",
+                restaurantId: restaurantA.id
+            })
+        });
+        assert.equal(staffOneLogin.status, 200, "Staff One should be able to log in.");
+        assert.equal(staffTwoLogin.status, 200, "Staff Two should be able to log in.");
+
+        const orderReference = "tenant-a-order-acceptance-test";
+        await insertOrderFixture(path.join(storageRoot, "restaurant.db"), {
+            reference: orderReference,
+            restaurantId: restaurantA.id,
+            status: "Paid",
+            paymentStatus: "paid",
+            customerPhone: "+2348000000000",
+            deliveryArea: "Test area",
+            fulfillmentType: "pickup",
+            total: 2500,
+            items: [{ id: "tenant-a-only-meal", name: "Tenant A Only Meal", price: 2500, quantity: 1 }],
+            date: new Date().toISOString(),
+            paidAt: new Date().toISOString()
+        });
+
+        const acceptOrder = (cookie) => request(port, `/api/staff/orders/status?restaurantId=${encodeURIComponent(restaurantA.id)}`, {
+            method: "POST",
+            body: JSON.stringify({ reference: orderReference, status: "Accepted" })
+        }, cookie);
+        const [firstAccept, secondAccept] = await Promise.all([
+            acceptOrder(staffOneLogin.cookie),
+            acceptOrder(staffTwoLogin.cookie)
+        ]);
+        const acceptedResponse = [firstAccept, secondAccept].find((response) => response.status === 200);
+        const rejectedResponse = [firstAccept, secondAccept].find((response) => response.status === 400);
+        assert.ok(acceptedResponse, "Exactly one staff member must be able to accept an order.");
+        assert.ok(rejectedResponse, "The second staff acceptance attempt must be rejected.");
+
+        const acceptedByUsername = acceptedResponse.data.order.acceptedByUsername;
+        assert.ok(["tenant-a-staff-one", "tenant-a-staff-two"].includes(acceptedByUsername), "The accepted order should record its staff owner.");
+        const ownerLogin = acceptedByUsername === "tenant-a-staff-one" ? staffOneLogin : staffTwoLogin;
+        const otherLogin = acceptedByUsername === "tenant-a-staff-one" ? staffTwoLogin : staffOneLogin;
+
+        const wrongDispatch = await request(port, `/api/staff/orders/status?restaurantId=${encodeURIComponent(restaurantA.id)}`, {
+            method: "POST",
+            body: JSON.stringify({ reference: orderReference, status: "Dispatched" })
+        }, otherLogin.cookie);
+        assert.equal(wrongDispatch.status, 400, "A staff member who did not accept an order must not dispatch it.");
+
+        const ownerDispatch = await request(port, `/api/staff/orders/status?restaurantId=${encodeURIComponent(restaurantA.id)}`, {
+            method: "POST",
+            body: JSON.stringify({ reference: orderReference, status: "Dispatched" })
+        }, ownerLogin.cookie);
+        assert.equal(ownerDispatch.status, 200, "The staff member who accepted an order should be able to dispatch it.");
+        assert.equal(ownerDispatch.data.order.status, "Dispatched", "Accepted orders should move directly to Dispatched.");
 
         const crossTenantOrders = await request(port, `/api/orders?restaurantId=${encodeURIComponent(restaurantB.id)}`, {}, adminALogin.cookie);
         assert.equal(crossTenantOrders.status, 401, "Tenant A admin must not read Tenant B orders.");

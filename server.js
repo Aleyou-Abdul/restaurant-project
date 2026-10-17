@@ -22,7 +22,7 @@ const defaultRestaurantSlug = "main";
 const demoHomeVendorId = "hungerstation-demo-vendor";
 const demoHomeVendorSlug = "home-food-demo";
 const defaultPlatformServiceFeeNaira = 100;
-const operationalOrderStatuses = ["Pending", "Accepted", "Preparing", "Out For Delivery", "Delivered"];
+const operationalOrderStatuses = ["Pending", "Accepted", "Dispatched", "Delivered"];
 
 fs.mkdirSync(storageRootPath, { recursive: true });
 
@@ -63,6 +63,7 @@ const jsonBodyLimitBytes = 1024 * 1024;
 const staticFileCache = new Map();
 const ordersCache = new Map();
 const siteDataCache = new Map();
+const orderStatusUpdateQueues = new Map();
 const db = new sqlite3.Database(databaseFilePath);
 const databaseReady = initializeDatabase();
 let backupTimerId = null;
@@ -454,6 +455,8 @@ const server = http.createServer(async (req, res) => {
 
         const updatedOrder = await updateOrderStatus(reference, status, {
             attendedBy: "Admin",
+            actorUsername: "admin",
+            actorRole: "admin",
             restaurantId: requestRestaurantId
         }, requestRestaurantId);
 
@@ -516,6 +519,8 @@ const server = http.createServer(async (req, res) => {
 
         const updatedOrder = await updateOrderStatus(reference, status, {
             attendedBy: staffUser.displayName || staffUser.username,
+            actorUsername: staffUser.username,
+            actorRole: "staff",
             restaurantId: requestRestaurantId
         }, requestRestaurantId);
 
@@ -2954,39 +2959,78 @@ function getImageExtension(fileName, mimeType) {
 async function updateOrderStatus(reference, status, extra = {}, restaurantId = defaultRestaurantId) {
     ensureOrdersStore();
     const normalizedRestaurantId = normalizeRestaurantId(restaurantId || extra.restaurantId || defaultRestaurantId);
-    const orders = await readOrders(normalizedRestaurantId);
-    const orderIndex = orders.findIndex((entry) => entry.reference === reference);
 
-    if (orderIndex === -1) {
-        return null;
-    }
+    // Staff may press Accept at the same time. Queue updates per restaurant so only one claim wins.
+    return queueOrderStatusUpdate(normalizedRestaurantId, async () => {
+        const orders = await readOrders(normalizedRestaurantId);
+        const orderIndex = orders.findIndex((entry) => entry.reference === reference);
 
-    const currentStatus = normalizeOperationalOrderStatus(orders[orderIndex].status);
-    const nextStatus = normalizeOperationalOrderStatus(status);
+        if (orderIndex === -1) {
+            return null;
+        }
 
-    if (!nextStatus || !isAllowedOrderStatusTransition(currentStatus, nextStatus)) {
-        return {
-            error: `This order must move from ${currentStatus || "Pending"} to ${getNextOperationalOrderStatus(currentStatus) || "a valid next status"}.`
+        const existingOrder = orders[orderIndex];
+        const currentStatus = normalizeOperationalOrderStatus(existingOrder.status);
+        const nextStatus = normalizeOperationalOrderStatus(status);
+
+        if (!nextStatus || !isAllowedOrderStatusTransition(currentStatus, nextStatus)) {
+            return {
+                error: `This order must move from ${currentStatus || "Pending"} to ${getNextOperationalOrderStatus(currentStatus) || "a valid next status"}.`
+            };
+        }
+
+        const actorUsername = normalizeUsername(extra.actorUsername || "");
+        const acceptedByUsername = normalizeUsername(existingOrder.acceptedByUsername || "");
+        if (
+            nextStatus === "Dispatched" &&
+            extra.actorRole === "staff" &&
+            acceptedByUsername &&
+            acceptedByUsername !== actorUsername
+        ) {
+            return {
+                error: `This order was accepted by ${existingOrder.attendedBy || "another staff member"}. Only they can dispatch it.`
+            };
+        }
+
+        const now = new Date().toISOString();
+        const isBeingAccepted = nextStatus === "Accepted";
+        const isBeingDispatched = nextStatus === "Dispatched";
+        orders[orderIndex] = {
+            ...existingOrder,
+            status: nextStatus,
+            attendedBy: isBeingAccepted ? (extra.attendedBy || existingOrder.attendedBy || "") : (existingOrder.attendedBy || extra.attendedBy || ""),
+            acceptedByUsername: isBeingAccepted ? actorUsername : acceptedByUsername,
+            acceptedAt: isBeingAccepted ? now : (existingOrder.acceptedAt || ""),
+            dispatchedBy: isBeingDispatched ? (extra.attendedBy || existingOrder.dispatchedBy || "") : (existingOrder.dispatchedBy || ""),
+            dispatchedAt: isBeingDispatched ? now : (existingOrder.dispatchedAt || ""),
+            statusUpdatedAt: now
         };
-    }
 
-    orders[orderIndex] = {
-        ...orders[orderIndex],
-        status: nextStatus,
-        attendedBy: extra.attendedBy || orders[orderIndex].attendedBy || "",
-        statusUpdatedAt: new Date().toISOString()
-    };
+        await writeOrders(orders, orders[orderIndex].restaurantId || normalizedRestaurantId);
+        return orders[orderIndex];
+    });
+}
 
-    await writeOrders(orders, orders[orderIndex].restaurantId || normalizedRestaurantId);
-    return orders[orderIndex];
+function queueOrderStatusUpdate(restaurantId, task) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+    const previousTask = orderStatusUpdateQueues.get(normalizedRestaurantId) || Promise.resolve();
+    const nextTask = previousTask.catch(() => undefined).then(task);
+
+    orderStatusUpdateQueues.set(normalizedRestaurantId, nextTask);
+    return nextTask.finally(() => {
+        if (orderStatusUpdateQueues.get(normalizedRestaurantId) === nextTask) {
+            orderStatusUpdateQueues.delete(normalizedRestaurantId);
+        }
+    });
 }
 
 function normalizeOperationalOrderStatus(status) {
     const normalizedStatus = String(status || "").trim().toLowerCase();
 
     if (normalizedStatus === "paid") return "Pending";
+    if (normalizedStatus === "preparing") return "Accepted";
     if (normalizedStatus === "dispatched" || normalizedStatus === "out-for-delivery" || normalizedStatus === "out_for_delivery") {
-        return "Out For Delivery";
+        return "Dispatched";
     }
 
     return operationalOrderStatuses.find((entry) => entry.toLowerCase() === normalizedStatus) || "";

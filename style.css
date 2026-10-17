@@ -1727,7 +1727,15 @@ nav a:hover {
 .receipt-badge.is-accepted { background: #e6f2ff; color: #165db3; }
 .receipt-badge.is-preparing { background: #f3eaff; color: #773aa9; }
 .receipt-badge.is-out-for-delivery { background: #e7f5ff; color: #087596; }
+.receipt-badge.is-dispatched { background: #e7f5ff; color: #087596; }
 .receipt-badge.is-delivered { background: #ecfdf5; color: #0a7a28; }
+
+.order-assignment-label {
+    align-self: center;
+    color: var(--color-muted);
+    font-size: 11px;
+    font-weight: 700;
+}
 
 .receipt-section {
     margin-top: 14px;

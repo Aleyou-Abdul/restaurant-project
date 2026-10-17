@@ -185,18 +185,25 @@ document.addEventListener("DOMContentLoaded", () => {
     function getOrderStatus(order) {
         const status = String(order.status || "Paid").trim().toLowerCase();
         if (status === "paid") return "Pending";
-        if (status === "dispatched" || status === "out-for-delivery" || status === "out_for_delivery") return "Out For Delivery";
+        if (status === "preparing") return "Accepted";
+        if (status === "dispatched" || status === "out-for-delivery" || status === "out_for_delivery") return "Dispatched";
         return status ? status.replace(/\b\w/g, (letter) => letter.toUpperCase()) : "Pending";
     }
 
     function getNextOrderAction(order) {
         const nextActions = {
             pending: { label: "Accept", status: "Accepted" },
-            accepted: { label: "Start Preparing", status: "Preparing" },
-            preparing: { label: "Out For Delivery", status: "Out For Delivery" },
-            "out for delivery": { label: "Delivered", status: "Delivered" }
+            accepted: { label: "Dispatch", status: "Dispatched" }
         };
         return nextActions[getOrderStatus(order).toLowerCase()] || null;
+    }
+
+    function getOrderAssignmentLabel(order) {
+        if (getOrderStatus(order).toLowerCase() === "pending") {
+            return "Waiting for staff";
+        }
+
+        return order.attendedBy ? `Accepted by ${order.attendedBy}` : "Accepted";
     }
 
     function isPendingOrder(order) {
@@ -656,9 +663,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function createStatusBadge(status) {
-        const normalizedStatus = String(status || "Paid").trim().toLowerCase();
         const badge = document.createElement("span");
-        const displayStatus = normalizedStatus === "paid" ? "Pending" : (normalizedStatus === "dispatched" ? "Out For Delivery" : (status || "Pending"));
+        const displayStatus = getOrderStatus({ status });
         badge.className = `receipt-badge is-${displayStatus.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
         badge.textContent = displayStatus;
         return badge;
@@ -1236,7 +1242,7 @@ document.addEventListener("DOMContentLoaded", () => {
             actionCell.appendChild(createOrderActions(order));
             tableRow.innerHTML = `
                 <td>${escapeHtml(order.reference)}</td>
-                <td>${escapeHtml(order.customerPhone || "-")}<br><small>${escapeHtml(order.attendedBy || "Waiting")}</small></td>
+                <td>${escapeHtml(order.customerPhone || "-")}<br><small>${escapeHtml(getOrderAssignmentLabel(order))}</small></td>
                 <td>${escapeHtml(getFulfillmentLabel(order))}<br><small>${escapeHtml(order.deliveryArea || "-")}</small></td>
                 <td>${formatPrice(order.total || 0)}</td>
                 <td></td>
@@ -1252,7 +1258,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 recentActionCell.appendChild(createOrderActions(order));
                 recentRow.innerHTML = `
                     <td>${escapeHtml(order.reference)}</td>
-                    <td>${escapeHtml(itemsText || "-")}<br><small>${escapeHtml(order.attendedBy || "Waiting")}</small></td>
+                    <td>${escapeHtml(itemsText || "-")}<br><small>${escapeHtml(getOrderAssignmentLabel(order))}</small></td>
                     <td>${formatPrice(order.total || 0)}</td>
                     <td></td>
                     <td>${escapeHtml(order.date || "-")}</td>

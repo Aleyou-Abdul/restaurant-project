@@ -19,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let ordersCache = [];
     let siteDataCache = null;
+    let staffUserCache = null;
     let previousPendingCount = 0;
     let hasLoadedOrdersOnce = false;
     let autoRefreshTimerId = null;
@@ -144,9 +145,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function createStatusBadge(status) {
-        const normalizedStatus = String(status || "Paid").trim().toLowerCase();
         const badge = document.createElement("span");
-        const displayStatus = normalizedStatus === "paid" ? "Pending" : (normalizedStatus === "dispatched" ? "Out For Delivery" : (status || "Pending"));
+        const displayStatus = getOrderStatus({ status });
         badge.className = `receipt-badge is-${displayStatus.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
         badge.textContent = displayStatus;
         return badge;
@@ -155,18 +155,43 @@ document.addEventListener("DOMContentLoaded", () => {
     function getOrderStatus(order) {
         const status = String(order.status || "Paid").trim().toLowerCase();
         if (status === "paid") return "Pending";
-        if (status === "dispatched" || status === "out-for-delivery" || status === "out_for_delivery") return "Out For Delivery";
+        if (status === "preparing") return "Accepted";
+        if (status === "dispatched" || status === "out-for-delivery" || status === "out_for_delivery") return "Dispatched";
         return status ? status.replace(/\b\w/g, (letter) => letter.toUpperCase()) : "Pending";
     }
 
     function getNextOrderAction(order) {
-        const nextActions = {
-            pending: { label: "Accept", status: "Accepted" },
-            accepted: { label: "Start Preparing", status: "Preparing" },
-            preparing: { label: "Out For Delivery", status: "Out For Delivery" },
-            "out for delivery": { label: "Delivered", status: "Delivered" }
-        };
-        return nextActions[getOrderStatus(order).toLowerCase()] || null;
+        const normalizedStatus = getOrderStatus(order).toLowerCase();
+
+        if (normalizedStatus === "pending") {
+            return { label: "Accept", status: "Accepted" };
+        }
+
+        if (normalizedStatus === "accepted" && isAcceptedByCurrentStaff(order)) {
+            return { label: "Dispatch", status: "Dispatched" };
+        }
+
+        return null;
+    }
+
+    function isAcceptedByCurrentStaff(order) {
+        const currentUsername = String(staffUserCache && staffUserCache.username || "").trim().toLowerCase();
+        const acceptedByUsername = String(order.acceptedByUsername || "").trim().toLowerCase();
+
+        // Orders created before this update do not have an owner, so staff can finish them normally.
+        return !acceptedByUsername || acceptedByUsername === currentUsername;
+    }
+
+    function getAssignmentLabel(order) {
+        if (getOrderStatus(order).toLowerCase() === "pending") {
+            return "Waiting for staff";
+        }
+
+        if (order.attendedBy) {
+            return `Accepted by ${order.attendedBy}`;
+        }
+
+        return "Accepted";
     }
 
     function isPendingOrder(order) {
@@ -517,6 +542,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 await updateOrderStatus(order.reference, nextAction.status);
             });
             wrapper.appendChild(statusBtn);
+        } else if (getOrderStatus(order).toLowerCase() === "accepted") {
+            const assignmentLabel = document.createElement("span");
+            assignmentLabel.className = "order-assignment-label";
+            assignmentLabel.textContent = `Accepted by ${order.attendedBy || "another staff member"}`;
+            wrapper.appendChild(assignmentLabel);
         }
 
         return wrapper;
@@ -569,7 +599,7 @@ document.addEventListener("DOMContentLoaded", () => {
             actionCell.appendChild(createOrderActions(order));
             row.innerHTML = `
                 <td>${escapeHtml(order.reference || "-")}</td>
-                <td>${escapeHtml(order.customerPhone || "-")}<br><small>${escapeHtml(order.attendedBy || "Waiting")}</small></td>
+                <td>${escapeHtml(order.customerPhone || "-")}<br><small>${escapeHtml(getAssignmentLabel(order))}</small></td>
                 <td>${escapeHtml(getFulfillmentLabel(order))}<br><small>${escapeHtml(order.deliveryArea || "-")}</small></td>
                 <td>${formatPrice(order.total || 0)}</td>
                 <td></td>
@@ -712,6 +742,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await fetchJson("/api/staff/bootstrap");
         ordersCache = data.orders || [];
         siteDataCache = data.siteData || null;
+        staffUserCache = data.user || null;
         syncRestaurantContext((siteDataCache && siteDataCache.restaurantId) || "");
         staffUserPillEl.textContent = data.user && data.user.displayName ? data.user.displayName : "Staff";
         renderOrders(ordersCache);
