@@ -17,6 +17,156 @@
     --transition-fast: 0.3s ease;
 }
 
+/* The public restaurant directory begins with a compact, screen-aware preview row. */
+.restaurant-preview-grid:not(.is-expanded) {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(108px, 0.46fr);
+    gap: 12px;
+}
+
+.restaurant-preview-grid:not(.is-expanded) .restaurant-directory-card {
+    grid-template-columns: 68px minmax(0, 1fr);
+}
+
+.restaurant-preview-grid:not(.is-expanded) .restaurant-card-logo {
+    width: 52px;
+    height: 52px;
+    margin: 12px 0 0 9px;
+    padding: 5px;
+}
+
+.restaurant-preview-grid:not(.is-expanded) .restaurant-card-content {
+    padding: 11px 10px 10px;
+}
+
+.restaurant-preview-grid:not(.is-expanded) .restaurant-card-content h2 {
+    margin: 5px 0 3px;
+    font-size: 0.88rem;
+}
+
+.restaurant-preview-grid:not(.is-expanded) .restaurant-card-content p {
+    font-size: 0.65rem;
+}
+
+.restaurant-preview-grid:not(.is-expanded) .restaurant-card-content dl {
+    display: none;
+}
+
+.restaurant-preview-grid:not(.is-expanded) .restaurant-card-content a {
+    margin-top: 9px;
+    padding: 7px;
+    font-size: 0.67rem;
+}
+
+.restaurant-see-all-card {
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 4px;
+    min-height: 100%;
+    padding: 12px 8px;
+    border: 1px dashed #e2a33b;
+    border-radius: 14px;
+    background: #fff8e9;
+    box-shadow: none;
+    color: #9a5b00;
+    font: inherit;
+    text-align: center;
+    cursor: pointer;
+    transform: none;
+}
+
+.restaurant-see-all-card:hover {
+    background: #ffedc2;
+    box-shadow: none;
+    transform: none;
+}
+
+.restaurant-see-all-card span,
+.restaurant-see-all-card strong,
+.restaurant-see-all-card small {
+    display: block;
+}
+
+.restaurant-see-all-card span {
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.restaurant-see-all-card strong {
+    color: #174c35;
+    font-size: 1rem;
+}
+
+.restaurant-see-all-card small {
+    color: #657563;
+    font-size: 0.64rem;
+}
+
+@media (max-width: 800px) {
+    .restaurant-preview-grid:not(.is-expanded) {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) 92px;
+        gap: 10px;
+    }
+}
+
+@media (max-width: 520px) {
+    .restaurant-preview-grid:not(.is-expanded) {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) 72px;
+        gap: 6px;
+    }
+
+    .restaurant-preview-grid:not(.is-expanded) .restaurant-directory-card {
+        grid-template-columns: 42px minmax(0, 1fr);
+    }
+
+    .restaurant-preview-grid:not(.is-expanded) .restaurant-card-logo {
+        width: 34px;
+        height: 34px;
+        margin: 9px 0 0 6px;
+        padding: 3px;
+        border-radius: 8px;
+    }
+
+    .restaurant-preview-grid:not(.is-expanded) .restaurant-card-content {
+        padding: 9px 7px 8px;
+    }
+
+    .restaurant-preview-grid:not(.is-expanded) .restaurant-card-badges,
+    .restaurant-preview-grid:not(.is-expanded) .restaurant-card-content p {
+        display: none;
+    }
+
+    .restaurant-preview-grid:not(.is-expanded) .restaurant-card-content h2 {
+        min-height: 2.2em;
+        margin-top: 0;
+        font-size: 0.68rem;
+        overflow-wrap: anywhere;
+    }
+
+    .restaurant-preview-grid:not(.is-expanded) .restaurant-card-content a {
+        margin-top: 5px;
+        padding: 5px 3px;
+        font-size: 0.55rem;
+    }
+
+    .restaurant-see-all-card {
+        padding: 8px 4px;
+        border-radius: 10px;
+    }
+
+    .restaurant-see-all-card span {
+        font-size: 0.61rem;
+    }
+
+    .restaurant-see-all-card strong {
+        font-size: 0.76rem;
+    }
+
+    .restaurant-see-all-card small {
+        font-size: 0.52rem;
+    }
+}
+
 /* Home Food Vendors use a compact daily-offer storefront instead of the restaurant landing page. */
 .home-vendor-storefront {
     --vendor-ink: #213b2d;

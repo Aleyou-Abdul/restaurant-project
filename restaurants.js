@@ -15,6 +15,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let foodItems = [];
     let foodCategories = [];
     let selectedFoodCategory = "All";
+    let restaurantPreviewExpanded = false;
 
     function wait(milliseconds) {
         return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -71,12 +72,22 @@ document.addEventListener("DOMContentLoaded", () => {
         return `${count} ${noun}${count === 1 ? "" : "s"}`;
     }
 
+    function getRestaurantPreviewLimit() {
+        return window.matchMedia("(max-width: 800px)").matches ? 2 : 3;
+    }
+
     function render() {
         const query = searchEl.value.trim().toLowerCase();
         const matches = restaurants.filter((restaurant) => `${restaurant.name} ${restaurant.address}`.toLowerCase().includes(query));
+        const previewLimit = getRestaurantPreviewLimit();
+        const showEverything = isVendorDirectory || Boolean(query) || restaurantPreviewExpanded;
+        const visibleRestaurants = showEverything ? matches : matches.slice(0, previewLimit);
+        const remainingCount = Math.max(0, matches.length - visibleRestaurants.length);
+
         countEl.textContent = getBusinessNoun(matches.length);
-        listEl.innerHTML = matches.map((restaurant) => `
-            <article class="restaurant-directory-card">
+        listEl.classList.toggle("is-expanded", showEverything);
+        listEl.innerHTML = visibleRestaurants.map((restaurant) => `
+            <article class="restaurant-directory-card${showEverything ? "" : " restaurant-preview-card"}">
                 <div class="restaurant-card-logo"><img src="${escapeHtml(imageSource(restaurant.logoPath))}" alt="${escapeHtml(restaurant.name)} logo"></div>
                 <div class="restaurant-card-content">
                     <div class="restaurant-card-badges"><span class="business-type-badge${restaurant.businessType === "home-vendor" ? " is-vendor" : ""}">${escapeHtml(getBusinessTypeLabel(restaurant.businessType))}</span><span class="restaurant-open-badge">${restaurant.deliveryAvailable ? "Delivery available" : "Pickup only"}</span></div>
@@ -85,7 +96,20 @@ document.addEventListener("DOMContentLoaded", () => {
                     <dl><div><dt>Opening hours</dt><dd>${escapeHtml(formatHours(restaurant))}</dd></div><div><dt>Rating</dt><dd>New on PlateRoute</dd></div></dl>
                     <a href="index.html?restaurantId=${encodeURIComponent(restaurant.id)}">${isVendorDirectory ? "See Offers" : "View Menu"}</a>
                 </div>
-            </article>`).join("") || `<p class="directory-empty">No ${isVendorDirectory ? "home food vendor" : "restaurant"} matches that search yet.</p>`;
+            </article>`).join("");
+
+        if (!showEverything && remainingCount > 0) {
+            listEl.insertAdjacentHTML("beforeend", `
+                <button class="restaurant-see-all-card" type="button" data-show-all-restaurants>
+                    <span>See all</span>
+                    <strong>${remainingCount} more</strong>
+                    <small>restaurants</small>
+                </button>`);
+        }
+
+        if (!listEl.innerHTML) {
+            listEl.innerHTML = `<p class="directory-empty">No ${isVendorDirectory ? "home food vendor" : "restaurant"} matches that search yet.</p>`;
+        }
     }
 
     function formatPrice(value) {
@@ -189,6 +213,14 @@ document.addEventListener("DOMContentLoaded", () => {
     searchEl.addEventListener("input", () => {
         render();
         renderFood();
+    });
+    listEl.addEventListener("click", (event) => {
+        if (!event.target.closest("[data-show-all-restaurants]")) return;
+        restaurantPreviewExpanded = true;
+        render();
+    });
+    window.addEventListener("resize", () => {
+        if (!isVendorDirectory && !restaurantPreviewExpanded && !searchEl.value.trim()) render();
     });
     document.addEventListener("keydown", (event) => {
         if (event.key !== "Escape" || searchPanelEl.hidden) return;
