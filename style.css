@@ -3804,3 +3804,353 @@ nav a:hover {
         min-height: 280px;
     }
 }
+
+/* Responsive hardening: keep every PlateRoute workspace usable without page-level horizontal overflow. */
+body {
+    overflow-x: hidden;
+}
+
+img,
+svg,
+input,
+select,
+textarea,
+button {
+    max-width: 100%;
+}
+
+.admin-table-wrap,
+.super-table-wrap {
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+
+.site-toast {
+    width: min(calc(100% - 28px), 520px);
+    text-align: center;
+}
+
+@media (max-width: 800px) {
+    .admin-sidebar {
+        padding: 18px 16px;
+    }
+
+    .admin-brand {
+        margin-bottom: 18px;
+    }
+
+    .admin-nav {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .admin-nav-btn {
+        min-height: 44px;
+        padding: 9px 7px;
+        text-align: center;
+        font-size: 12px;
+        line-height: 1.2;
+    }
+
+    .admin-main {
+        padding: 16px 12px 28px;
+    }
+
+    .admin-topbar,
+    .admin-surface-header,
+    .admin-panel-header,
+    .super-page-header,
+    .super-panel-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .admin-topbar {
+        gap: 14px;
+    }
+
+    .admin-topbar-actions,
+    .admin-surface-header .admin-topbar-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .admin-surface,
+    .admin-stat-card,
+    .admin-panel {
+        padding: 16px;
+    }
+
+    .admin-surface-header h3 {
+        font-size: 24px;
+    }
+
+    .admin-table {
+        min-width: 680px;
+        font-size: 12px;
+    }
+
+    .admin-table th,
+    .admin-table td {
+        padding: 11px 9px;
+    }
+
+    .admin-order-actions {
+        min-width: 150px;
+    }
+
+    .admin-image-preview {
+        height: auto;
+        max-height: 180px;
+    }
+
+    .owner-report-total {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .super-table {
+        min-width: 650px;
+    }
+
+    .super-actions {
+        flex-wrap: wrap;
+    }
+
+    .vendor-studio-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .vendor-studio-header > div:last-child {
+        flex-wrap: wrap;
+    }
+
+    .vendor-panel-heading {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .vendor-offer-row {
+        grid-template-columns: 52px minmax(0, 1fr) 100px;
+    }
+
+    .vendor-offer-row button {
+        grid-column: 2 / -1;
+        justify-self: start;
+    }
+}
+
+@media (max-width: 600px) {
+    header {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 12px 14px;
+    }
+
+    .logo-wrap {
+        max-width: 100%;
+    }
+
+    .logo {
+        overflow: hidden;
+        font-size: 16px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    header nav {
+        width: 100%;
+        gap: 10px;
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding: 2px 0 5px;
+        scrollbar-width: thin;
+    }
+
+    header nav a,
+    .cart-icon {
+        flex: 0 0 auto;
+        margin-left: 0;
+        font-size: 12px;
+    }
+
+    .cart-icon {
+        margin-right: 8px;
+    }
+
+    .cart-section {
+        padding: 30px 12px;
+    }
+
+    .cart-container {
+        padding: 14px;
+    }
+
+    .cart-summary {
+        align-items: stretch;
+        gap: 16px;
+    }
+
+    .summary-breakdown,
+    .payment-details,
+    .cart-summary-actions,
+    .cart-summary-actions button {
+        width: 100%;
+    }
+
+    .receipt-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .platform-customer-header {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 13px 14px;
+    }
+
+    .platform-header-actions {
+        width: 100%;
+        gap: 6px;
+    }
+
+    .platform-home-link {
+        flex: 1 1 0;
+        padding: 8px 6px;
+        font-size: 0.68rem;
+        text-align: center;
+        white-space: nowrap;
+    }
+
+    .platform-search-toggle {
+        flex: 0 0 36px;
+    }
+
+    .platform-search-panel {
+        padding: 12px 14px;
+    }
+
+    .restaurant-directory-section {
+        padding-right: 14px;
+        padding-left: 14px;
+    }
+
+    .directory-category-filters {
+        gap: 6px;
+    }
+
+    .directory-category-btn {
+        padding: 7px 10px;
+        font-size: 0.7rem;
+    }
+
+    .admin-nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .admin-topbar-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    .admin-topbar-actions .order-sound-btn {
+        grid-column: 1 / -1;
+    }
+
+    .admin-topbar-actions .admin-notification-wrap,
+    .admin-topbar-actions .admin-user-pill {
+        justify-self: stretch;
+    }
+
+    .admin-topbar-actions .admin-user-pill {
+        min-height: 42px;
+        padding: 9px 12px;
+    }
+
+    .admin-notification-btn {
+        width: 42px;
+        height: 42px;
+    }
+
+    .admin-notification-panel {
+        right: auto;
+        left: 0;
+        width: min(420px, calc(100vw - 24px));
+    }
+
+    .admin-surface-header .admin-topbar-actions {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    .admin-form-grid,
+    .admin-repeat-row,
+    .admin-repeat-row-compact,
+    .admin-user-row {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-upload-tools {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .admin-upload-status {
+        overflow-wrap: anywhere;
+    }
+
+    .super-sidebar {
+        padding: 18px 14px;
+    }
+
+    .super-sidebar nav {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .super-content {
+        padding: 20px 12px 32px;
+    }
+
+    .super-panel,
+    .super-login-intro,
+    .super-login-card {
+        padding: 18px;
+    }
+
+    .super-settings-form {
+        width: 100%;
+    }
+
+    .vendor-studio {
+        padding: 20px 12px 36px;
+    }
+
+    .vendor-overview {
+        gap: 8px;
+    }
+
+    .vendor-overview article,
+    .vendor-panel {
+        padding: 14px;
+    }
+
+    .vendor-overview strong {
+        font-size: 1.2rem;
+    }
+
+    .vendor-offer-row {
+        grid-template-columns: 44px minmax(0, 1fr);
+    }
+
+    .vendor-offer-row select,
+    .vendor-offer-row button {
+        grid-column: 2;
+        width: 100%;
+    }
+}
