@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
     const listEl = document.getElementById("restaurant-directory-list");
     const countEl = document.getElementById("restaurant-count");
+    const showLessEl = document.getElementById("restaurant-show-less");
     const searchToggleEl = document.getElementById("platform-search-toggle");
     const searchPanelEl = document.getElementById("platform-search-panel");
     const searchEl = document.getElementById("platform-search-input");
@@ -85,6 +86,9 @@ document.addEventListener("DOMContentLoaded", () => {
         const remainingCount = Math.max(0, matches.length - visibleRestaurants.length);
 
         countEl.textContent = getBusinessNoun(matches.length);
+        if (showLessEl) {
+            showLessEl.hidden = !restaurantPreviewExpanded || Boolean(query) || isVendorDirectory;
+        }
         listEl.classList.toggle("is-expanded", showEverything);
         listEl.innerHTML = visibleRestaurants.map((restaurant) => `
             <article class="restaurant-directory-card${showEverything ? "" : " restaurant-preview-card"}">
@@ -219,6 +223,13 @@ document.addEventListener("DOMContentLoaded", () => {
         restaurantPreviewExpanded = true;
         render();
     });
+    if (showLessEl) {
+        showLessEl.addEventListener("click", () => {
+            restaurantPreviewExpanded = false;
+            render();
+            document.querySelector(".restaurant-directory-priority")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+    }
     window.addEventListener("resize", () => {
         if (!isVendorDirectory && !restaurantPreviewExpanded && !searchEl.value.trim()) render();
     });

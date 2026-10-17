@@ -102,6 +102,32 @@
     font-size: 0.64rem;
 }
 
+.restaurant-directory-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.restaurant-show-less {
+    border: 1px solid #d7e4d8;
+    border-radius: 999px;
+    padding: 7px 10px;
+    background: #fff;
+    box-shadow: none;
+    color: #286343;
+    font: inherit;
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    transform: none;
+}
+
+.restaurant-show-less:hover {
+    background: #edf7ed;
+    box-shadow: none;
+    transform: none;
+}
+
 @media (max-width: 800px) {
     .restaurant-preview-grid:not(.is-expanded) {
         grid-template-columns: repeat(2, minmax(0, 1fr)) 92px;
@@ -110,6 +136,15 @@
 }
 
 @media (max-width: 520px) {
+    .restaurant-directory-meta {
+        gap: 7px;
+    }
+
+    .restaurant-show-less {
+        padding: 6px 8px;
+        font-size: 0.64rem;
+    }
+
     .restaurant-preview-grid:not(.is-expanded) {
         grid-template-columns: repeat(2, minmax(0, 1fr)) 72px;
         gap: 6px;
