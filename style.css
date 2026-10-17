@@ -4153,4 +4153,82 @@ button {
         grid-column: 2;
         width: 100%;
     }
+
+    /* Staff orders become compact cards so every detail stays visible on phones. */
+    .staff-app .admin-table-wrap {
+        overflow: visible;
+    }
+
+    .staff-app .admin-table {
+        display: block;
+        min-width: 0;
+        font-size: 13px;
+    }
+
+    .staff-app .admin-table thead {
+        display: none;
+    }
+
+    .staff-app .admin-table tbody {
+        display: grid;
+        gap: 12px;
+    }
+
+    .staff-app .admin-table tr {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 12px;
+        padding: 13px;
+        border: 1px solid var(--color-border);
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: var(--shadow-soft);
+    }
+
+    .staff-app .admin-table td {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+        padding: 8px 0;
+        border-bottom: 1px solid #edf0f3;
+        overflow-wrap: anywhere;
+    }
+
+    .staff-app .admin-table td::before {
+        content: attr(data-label);
+        color: #697386;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .staff-app .admin-table td:nth-last-child(-n + 2) {
+        grid-column: 1 / -1;
+    }
+
+    .staff-app .admin-table td:last-child {
+        border-bottom: 0;
+    }
+
+    .staff-app .admin-order-actions {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        width: 100%;
+    }
+
+    .staff-app .admin-order-actions .admin-action-btn,
+    .staff-app .admin-order-actions .order-assignment-label {
+        min-width: 0;
+        text-align: center;
+    }
+
+    .staff-app #staff-stock-list .admin-repeat-row {
+        gap: 14px;
+        padding: 14px;
+    }
+
+    .staff-app #staff-stock-list .admin-repeat-row button {
+        width: 100%;
+    }
 }

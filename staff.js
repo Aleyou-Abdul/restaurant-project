@@ -596,14 +596,15 @@ document.addEventListener("DOMContentLoaded", () => {
         orders.forEach((order) => {
             const row = document.createElement("tr");
             const actionCell = document.createElement("td");
+            actionCell.dataset.label = "Actions";
             actionCell.appendChild(createOrderActions(order));
             row.innerHTML = `
-                <td>${escapeHtml(order.reference || "-")}</td>
-                <td>${escapeHtml(order.customerPhone || "-")}<br><small>${escapeHtml(getAssignmentLabel(order))}</small></td>
-                <td>${escapeHtml(getFulfillmentLabel(order))}<br><small>${escapeHtml(order.deliveryArea || "-")}</small></td>
-                <td>${formatPrice(order.total || 0)}</td>
-                <td></td>
-                <td>${escapeHtml(order.date || "-")}</td>
+                <td data-label="Order ID">${escapeHtml(order.reference || "-")}</td>
+                <td data-label="Customer">${escapeHtml(order.customerPhone || "-")}<br><small>${escapeHtml(getAssignmentLabel(order))}</small></td>
+                <td data-label="Delivery">${escapeHtml(getFulfillmentLabel(order))}<br><small>${escapeHtml(order.deliveryArea || "-")}</small></td>
+                <td data-label="Total">${formatPrice(order.total || 0)}</td>
+                <td data-label="Status"></td>
+                <td data-label="Date">${escapeHtml(order.date || "-")}</td>
             `;
             row.children[4].appendChild(createStatusBadge(order.status || "Paid"));
             row.appendChild(actionCell);
