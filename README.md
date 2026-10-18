@@ -20,6 +20,8 @@ This project is a restaurant ordering system with:
 - `admin.html`: full management dashboard
 - `staff-login.html`: staff sign-in
 - `staff.html`: limited staff dashboard for orders and stock
+- `business-registration.html`: public application form for restaurants and Home Food Vendors
+- `super-admin-login.html`: protected PlateRoute Super Admin sign-in
 - `instant-tech-solution.html`: company profile page
 
 ## PlateRoute Discovery
@@ -66,7 +68,7 @@ This project is a restaurant ordering system with:
 
 ## Multi-Restaurant Safety Check
 
-Run `npm run check-tenants` before a multi-restaurant release. It creates two temporary restaurants and verifies that one restaurant admin cannot access the other restaurant's protected orders, staff, or settings.
+Run `npm run check-tenants` before a multi-restaurant release. It submits temporary self-service business applications, verifies that pending businesses cannot appear publicly or access their dashboards, approves them through Super Admin, then verifies that one business admin cannot access another business's protected orders, staff, or settings.
 
 ## Render Demo Deployment
 
@@ -201,7 +203,13 @@ Payments are intentionally blocked unless `PAYSTACK_SPLIT_CODE` is configured. T
 
 The platform foundation adds isolated restaurant records, restaurant-specific admin accounts, and a protected Super Admin workspace at `/super-admin-login.html`.
 
-Set `SUPER_ADMIN_USERNAME` and `SUPER_ADMIN_PASSWORD_HASH` in Render before using the workspace. The Super Admin can create a restaurant, issue its first admin account, approve or suspend the restaurant, remove a non-default restaurant, and configure the platform service fee. Existing Hungry Nomad data remains in the default tenant during the migration.
+### Business Applications And Approval
+
+Restaurants and Home Food Vendors apply at `/business-registration.html`. The form collects the business type, business and owner contact details, address, a short business description, and the future dashboard username and password.
+
+Every application starts as **Pending**. Pending businesses cannot appear in PlateRoute discovery, accept customer orders, or sign in to their dashboard. From `/super-admin.html`, the Super Admin reviews the owner details, business address, contact information, and description before choosing **Approve and activate**, **Suspend**, or **Delete application**. Approval makes the business visible and unlocks the owner dashboard; suspension immediately clears active dashboard sessions.
+
+Set `SUPER_ADMIN_USERNAME` and `SUPER_ADMIN_PASSWORD_HASH` in Railway before using the workspace. The Super Admin reviews applications, approves or suspends businesses, removes non-default businesses, configures platform settings, reviews platform orders, and manages each restaurant's payment configuration. Existing Hungry Nomad data remains in the default tenant during the migration.
 
 Customers can browse approved restaurants at `/restaurants.html`. Selecting a card opens that restaurant's existing storefront with a `restaurantId` context. Carts, delivery details, order notes, and receipt drafts are stored separately for each restaurant in the browser.
 

@@ -4467,3 +4467,320 @@ button {
         font-size: 0.62rem;
     }
 }
+
+/* Public business applications remain separate from customer ordering and admin screens. */
+.business-registration-body {
+    min-height: 100vh;
+    margin: 0;
+    background: linear-gradient(135deg, #f7f0df, #eaf2e7 52%, #fef9ef);
+    color: #203b2c;
+    font-family: "Poppins", sans-serif;
+}
+
+.business-registration-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(420px, 1.15fr);
+    gap: clamp(24px, 5vw, 72px);
+    width: min(1160px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: clamp(32px, 7vw, 88px) 0;
+}
+
+.business-registration-intro {
+    align-self: start;
+    padding: 18px 0;
+}
+
+.business-registration-brand {
+    display: inline-block;
+    margin-bottom: 48px;
+    color: #143d2b;
+    font-size: 1.5rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.business-registration-brand span {
+    color: #e99000;
+}
+
+.business-registration-intro h1 {
+    max-width: 580px;
+    margin: 7px 0 16px;
+    color: #143d2b;
+    font-size: clamp(2.5rem, 5.5vw, 4.7rem);
+    letter-spacing: -0.07em;
+    line-height: 0.94;
+}
+
+.business-registration-intro > p:not(.directory-kicker):not(.business-registration-note) {
+    max-width: 510px;
+    color: #496054;
+    font-size: 0.98rem;
+    line-height: 1.65;
+}
+
+.business-registration-steps {
+    display: grid;
+    gap: 12px;
+    margin: 32px 0 26px;
+    padding: 0;
+    list-style: none;
+}
+
+.business-registration-steps li {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    gap: 12px;
+    align-items: baseline;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(39, 89, 61, 0.14);
+}
+
+.business-registration-steps strong {
+    color: #17623e;
+}
+
+.business-registration-steps span,
+.business-registration-note {
+    color: #61766a;
+    font-size: 0.82rem;
+}
+
+.business-registration-note {
+    max-width: 470px;
+    margin: 0;
+    padding: 13px 15px;
+    border-left: 3px solid #e99000;
+    background: rgba(255, 251, 239, 0.72);
+    line-height: 1.5;
+}
+
+.business-registration-card {
+    padding: clamp(22px, 4vw, 42px);
+    border: 1px solid rgba(29, 78, 51, 0.12);
+    border-radius: 26px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 24px 60px rgba(25, 73, 47, 0.12);
+}
+
+.business-registration-card-heading h2 {
+    margin: 5px 0 7px;
+    color: #143d2b;
+    font-size: clamp(1.7rem, 3vw, 2.4rem);
+    letter-spacing: -0.045em;
+}
+
+.business-registration-card-heading > p:last-child {
+    margin: 0 0 24px;
+    color: #64776d;
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+
+.business-registration-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 15px;
+}
+
+.business-registration-form label,
+.business-registration-account {
+    display: grid;
+    gap: 7px;
+    color: #385246;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.business-registration-form input,
+.business-registration-form select,
+.business-registration-form textarea {
+    box-sizing: border-box;
+    width: 100%;
+    border: 1px solid #d7e1da;
+    border-radius: 10px;
+    padding: 12px;
+    background: #fff;
+    color: #203b2c;
+    font: inherit;
+    font-size: 0.9rem;
+}
+
+.business-registration-form textarea {
+    resize: vertical;
+}
+
+.business-registration-wide,
+.business-registration-account,
+.business-registration-consent {
+    grid-column: 1 / -1;
+}
+
+.business-registration-account {
+    margin: 4px 0 0;
+    padding: 16px;
+    border: 1px solid #e3ebdf;
+    border-radius: 14px;
+    background: #fbfdf9;
+}
+
+.business-registration-account legend {
+    padding: 0 5px;
+    color: #215e3c;
+    font-size: 0.86rem;
+}
+
+.business-registration-account > p {
+    margin: 0 0 14px;
+    color: #718176;
+    font-size: 0.73rem;
+    font-weight: 400;
+}
+
+.business-registration-consent {
+    display: flex !important;
+    align-items: flex-start;
+    gap: 9px;
+    color: #52675a !important;
+    font-size: 0.76rem !important;
+    font-weight: 500 !important;
+    line-height: 1.45;
+}
+
+.business-registration-consent input {
+    width: auto;
+    margin-top: 3px;
+}
+
+.business-registration-honeypot {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+}
+
+.business-registration-form button,
+.super-application-actions button {
+    border: 0;
+    border-radius: 10px;
+    padding: 12px 16px;
+    background: #157347;
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.business-registration-form button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.business-registration-login-link {
+    margin: 18px 0 0;
+    color: #64776d;
+    font-size: 0.76rem;
+}
+
+.business-registration-login-link a,
+.directory-join-link {
+    color: #17623e;
+    font-weight: 700;
+}
+
+.directory-join-link {
+    display: inline-flex;
+    margin-top: 15px;
+    border-radius: 999px;
+    padding: 8px 12px;
+    background: #143d2b;
+    color: #fff;
+    font-size: 0.74rem;
+    text-decoration: none;
+}
+
+.super-application-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 18px 0;
+}
+
+.super-application-details div {
+    padding: 13px;
+    border: 1px solid #e4ece5;
+    border-radius: 10px;
+    background: #fbfdfb;
+}
+
+.super-application-details dt {
+    color: #6d8073;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.super-application-details dd {
+    margin: 5px 0 0;
+    color: #244433;
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+.super-application-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.super-application-actions .danger {
+    background: #b83a35;
+}
+
+@media (max-width: 800px) {
+    .business-registration-shell {
+        grid-template-columns: 1fr;
+        gap: 18px;
+    }
+
+    .business-registration-brand {
+        margin-bottom: 28px;
+    }
+}
+
+@media (max-width: 560px) {
+    .business-registration-shell {
+        width: min(100% - 24px, 620px);
+        padding: 24px 0 36px;
+    }
+
+    .business-registration-intro {
+        padding: 4px 4px 10px;
+    }
+
+    .business-registration-intro h1 {
+        font-size: clamp(2.35rem, 13vw, 3.35rem);
+    }
+
+    .business-registration-steps li,
+    .business-registration-form,
+    .super-application-details {
+        grid-template-columns: 1fr;
+    }
+
+    .business-registration-card {
+        padding: 20px 16px;
+        border-radius: 18px;
+    }
+
+    .business-registration-account {
+        padding: 13px;
+    }
+
+    .directory-join-link {
+        font-size: 0.68rem;
+    }
+}

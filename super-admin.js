@@ -4,7 +4,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const serviceFeeEl = document.getElementById("platform-service-fee");
     const paymentRestaurantEl = document.getElementById("payment-restaurant-id");
     const restaurantServiceFeeEl = document.getElementById("restaurant-service-fee");
+    const reviewSectionEl = document.getElementById("application-review");
+    const reviewTitleEl = document.getElementById("application-review-title");
+    const reviewDetailsEl = document.getElementById("application-review-details");
+    const reviewApproveBtn = document.getElementById("application-review-approve");
+    const reviewDeleteBtn = document.getElementById("application-review-delete");
     const money = new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 });
+    let restaurantsCache = [];
+    let selectedRestaurantId = "";
 
     async function request(url, options) {
         const response = await fetch(url, options);
@@ -22,21 +29,66 @@ document.addEventListener("DOMContentLoaded", () => {
         return String(value || "").replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[character]));
     }
 
+    function formatDate(value) {
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? "Not available" : new Intl.DateTimeFormat("en-NG", { dateStyle: "medium", timeStyle: "short" }).format(date);
+    }
+
+    function getBusinessTypeLabel(businessType) {
+        return businessType === "home-vendor" ? "Home Food Vendor" : "Restaurant";
+    }
+
     function renderRestaurants(restaurants) {
         listEl.innerHTML = restaurants.map((restaurant) => {
             const state = restaurant.suspended ? "suspended" : restaurant.status;
             const action = state === "active" ? "Suspend" : "Approve";
             const nextStatus = state === "active" ? "suspended" : "active";
             const protectedDefault = restaurant.id === "hungerstation-default";
-            const businessTypeLabel = restaurant.businessType === "home-vendor" ? "Home Food Vendor" : "Restaurant";
+            const isActive = state === "active";
             return `<tr>
-                <td><strong>${escapeHtml(restaurant.name)}</strong><small>${escapeHtml(restaurant.slug)}</small><small>${restaurant.paymentConfigured ? "Payment configured" : "Payment setup needed"}</small></td>
-                <td>${escapeHtml(businessTypeLabel)}</td>
-                <td>${escapeHtml(restaurant.phone || "No phone")}<small>${escapeHtml(restaurant.email || "No email")}</small></td>
+                <td><strong>${escapeHtml(restaurant.name)}</strong><small>${escapeHtml(getBusinessTypeLabel(restaurant.businessType))}</small><small>${restaurant.paymentConfigured ? "Payment configured" : "Payment setup needed"}</small></td>
+                <td><strong>${escapeHtml(restaurant.ownerName || "Not provided")}</strong><small>${escapeHtml(restaurant.registrationSource === "self-service" ? "Self-service application" : "Platform business")}</small><small>${formatDate(restaurant.createdAt)}</small></td>
+                <td>${escapeHtml(restaurant.phone || "No phone")}<small>${escapeHtml(restaurant.ownerPhone || restaurant.email || "No owner contact")}</small><small>${escapeHtml(restaurant.email || "No email")}</small></td>
                 <td><span class="super-status ${escapeHtml(state)}">${escapeHtml(state)}</span></td>
-                <td class="super-actions"><a class="super-login-link" href="admin-login.html?restaurantId=${encodeURIComponent(restaurant.id)}">Admin</a><button data-status="${nextStatus}" data-id="${escapeHtml(restaurant.id)}" type="button">${action}</button>${protectedDefault ? "" : `<button data-delete="true" data-id="${escapeHtml(restaurant.id)}" class="danger" type="button">Delete</button>`}</td>
+                <td class="super-actions"><button data-review="true" data-id="${escapeHtml(restaurant.id)}" type="button">Review</button>${isActive ? `<a class="super-login-link" href="admin-login.html?restaurantId=${encodeURIComponent(restaurant.id)}">Admin</a>` : ""}<button data-status="${nextStatus}" data-id="${escapeHtml(restaurant.id)}" type="button">${action}</button>${protectedDefault ? "" : `<button data-delete="true" data-id="${escapeHtml(restaurant.id)}" class="danger" type="button">Delete</button>`}</td>
             </tr>`;
-        }).join("") || '<tr><td colspan="5">No businesses have been created yet.</td></tr>';
+        }).join("") || '<tr><td colspan="5">No business applications have been received yet.</td></tr>';
+    }
+
+    function hideApplicationReview() {
+        selectedRestaurantId = "";
+        reviewSectionEl.hidden = true;
+    }
+
+    function renderApplicationReview(restaurant) {
+        if (!restaurant) {
+            hideApplicationReview();
+            return;
+        }
+
+        selectedRestaurantId = restaurant.id;
+        const state = restaurant.suspended ? "suspended" : restaurant.status;
+        const entries = [
+            ["Business", restaurant.name],
+            ["Business type", getBusinessTypeLabel(restaurant.businessType)],
+            ["Application status", state],
+            ["Owner or manager", restaurant.ownerName || "Not provided"],
+            ["Owner phone", restaurant.ownerPhone || "Not provided"],
+            ["Business phone", restaurant.phone || "Not provided"],
+            ["Email", restaurant.email || "Not provided"],
+            ["Address", restaurant.address || "Not provided"],
+            ["City / state", [restaurant.city, restaurant.state].filter(Boolean).join(", ") || "Not provided"],
+            ["About the business", restaurant.applicationNote || "Not provided"],
+            ["Submitted", formatDate(restaurant.createdAt)]
+        ];
+
+        reviewTitleEl.textContent = `Review: ${restaurant.name}`;
+        reviewDetailsEl.innerHTML = entries.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join("");
+        reviewApproveBtn.hidden = state === "active";
+        reviewApproveBtn.textContent = state === "suspended" ? "Activate business" : "Approve and activate";
+        reviewDeleteBtn.hidden = restaurant.id === "hungerstation-default";
+        reviewSectionEl.hidden = false;
+        reviewSectionEl.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
     function populatePaymentRestaurantOptions(restaurants, defaultServiceFee) {
@@ -70,9 +122,13 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById("stat-pending").textContent = data.statistics.pendingRestaurants;
             document.getElementById("stat-revenue").textContent = money.format(data.statistics.platformRevenue);
             serviceFeeEl.value = Number(data.platformSettings.service_fee_naira || 100);
-            renderRestaurants(data.restaurants);
-            populatePaymentRestaurantOptions(data.restaurants, data.platformSettings.service_fee_naira);
+            restaurantsCache = data.restaurants || [];
+            renderRestaurants(restaurantsCache);
+            populatePaymentRestaurantOptions(restaurantsCache, data.platformSettings.service_fee_naira);
             await loadSelectedPaymentSettings();
+            if (selectedRestaurantId) {
+                renderApplicationReview(restaurantsCache.find((restaurant) => restaurant.id === selectedRestaurantId));
+            }
         } catch (error) {
             if (/Unauthorized/i.test(error.message)) {
                 window.location.href = "super-admin-login.html";
@@ -81,19 +137,6 @@ document.addEventListener("DOMContentLoaded", () => {
             showStatus(error.message, "error");
         }
     }
-
-    document.getElementById("restaurant-create-form").addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const form = event.currentTarget;
-        try {
-            showStatus("Creating restaurant...", "info");
-            const values = Object.fromEntries(new FormData(form).entries());
-            await request("/api/super-admin/restaurants", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(values) });
-            form.reset();
-            showStatus("Business created. Approve it when its profile and payment settings are ready.", "success");
-            await loadDashboard();
-        } catch (error) { showStatus(error.message, "error"); }
-    });
 
     document.getElementById("platform-settings-form").addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -128,6 +171,10 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!button) return;
         const restaurantId = button.dataset.id;
         try {
+            if (button.dataset.review) {
+                renderApplicationReview(restaurantsCache.find((restaurant) => restaurant.id === restaurantId));
+                return;
+            }
             if (button.dataset.delete) {
                 if (!window.confirm("Delete this restaurant and its isolated data? This cannot be undone.")) return;
                 await request("/api/super-admin/restaurants/delete", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ restaurantId }) });
@@ -139,6 +186,35 @@ document.addEventListener("DOMContentLoaded", () => {
             await loadDashboard();
         } catch (error) { showStatus(error.message, "error"); }
     });
+
+    reviewApproveBtn.addEventListener("click", async () => {
+        if (!selectedRestaurantId) return;
+        try {
+            await request("/api/super-admin/restaurants/status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ restaurantId: selectedRestaurantId, status: "active" })
+            });
+            showStatus("Business approved and activated.", "success");
+            await loadDashboard();
+        } catch (error) { showStatus(error.message, "error"); }
+    });
+
+    reviewDeleteBtn.addEventListener("click", async () => {
+        if (!selectedRestaurantId || !window.confirm("Delete this business application and its isolated data? This cannot be undone.")) return;
+        try {
+            await request("/api/super-admin/restaurants/delete", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ restaurantId: selectedRestaurantId })
+            });
+            hideApplicationReview();
+            showStatus("Business application deleted.", "success");
+            await loadDashboard();
+        } catch (error) { showStatus(error.message, "error"); }
+    });
+
+    document.getElementById("application-review-close").addEventListener("click", hideApplicationReview);
 
     document.getElementById("super-admin-refresh-btn").addEventListener("click", loadDashboard);
     document.getElementById("super-admin-logout-btn").addEventListener("click", async () => {

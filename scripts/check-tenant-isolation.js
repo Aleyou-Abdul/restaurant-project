@@ -7,6 +7,7 @@ const path = require("path");
 const sqlite3 = require("sqlite3");
 
 const rootDir = path.resolve(__dirname, "..");
+let testServerErrorOutput = "";
 
 function findAvailablePort() {
     return new Promise((resolve, reject) => {
@@ -36,14 +37,20 @@ function waitForServer(process) {
 }
 
 async function request(port, route, options = {}, cookie = "") {
-    const response = await fetch(`http://127.0.0.1:${port}${route}`, {
-        ...options,
-        headers: {
-            "Content-Type": "application/json",
-            ...(cookie ? { Cookie: cookie } : {}),
-            ...(options.headers || {})
-        }
-    });
+    let response;
+    try {
+        response = await fetch(`http://localhost:${port}${route}`, {
+            ...options,
+            headers: {
+                "Content-Type": "application/json",
+                ...(cookie ? { Cookie: cookie } : {}),
+                ...(options.headers || {})
+            }
+        });
+    } catch (error) {
+        const serverDetails = testServerErrorOutput.trim();
+        throw new Error(`Request to ${route} failed: ${error.message}${serverDetails ? `\nTest server error: ${serverDetails}` : ""}`);
+    }
     const data = await response.json();
     const setCookie = response.headers.get("set-cookie");
     return { status: response.status, data, cookie: setCookie ? setCookie.split(";")[0] : "" };
@@ -98,6 +105,9 @@ async function main() {
         },
         stdio: ["ignore", "pipe", "pipe"]
     });
+    serverProcess.stderr.on("data", (chunk) => {
+        testServerErrorOutput += chunk.toString();
+    });
 
     try {
         await waitForServer(serverProcess);
@@ -121,18 +131,48 @@ async function main() {
         assert.equal(superLogin.status, 200, "Super Admin login should succeed.");
 
         const createRestaurant = async (name, username, businessType = "restaurant") => {
-            const response = await request(port, "/api/super-admin/restaurants", {
+            const application = await request(port, "/api/business-applications", {
                 method: "POST",
-                body: JSON.stringify({ name, businessType, adminUsername: username, adminPassword: "restaurant-password" })
-            }, superLogin.cookie);
-            assert.equal(response.status, 201, `${name} should be created.`);
+                body: JSON.stringify({
+                    name,
+                    businessType,
+                    ownerName: `${name} Owner`,
+                    phone: "+2348000000000",
+                    ownerPhone: "+2348000000000",
+                    email: `${username}@example.test`,
+                    address: "1 Test Street",
+                    city: "Kaduna",
+                    state: "Kaduna State",
+                    applicationNote: "A verified test business for tenant isolation checks.",
+                    adminUsername: username,
+                    adminPassword: "restaurant-password",
+                    acceptedTerms: "on"
+                })
+            });
+            assert.equal(application.status, 201, `${name} application should be received.`);
+
+            const bootstrap = await request(port, "/api/super-admin/bootstrap", {}, superLogin.cookie);
+            assert.equal(bootstrap.status, 200, "Super Admin should be able to review applications.");
+            const restaurant = bootstrap.data.restaurants.find((item) => item.name === name);
+            assert.ok(restaurant, `${name} should appear in the Super Admin review list.`);
+            assert.equal(restaurant.status, "pending", `${name} should begin as pending.`);
+            assert.equal(restaurant.approved, false, `${name} must not be public before approval.`);
+
+            const pendingPublicRequest = await request(port, `/api/site-data?restaurantId=${encodeURIComponent(restaurant.id)}`);
+            assert.equal(pendingPublicRequest.status, 403, `${name} should not be visible to customers before approval.`);
+
+            const pendingAdminLogin = await request(port, `/api/admin/login?restaurantId=${encodeURIComponent(restaurant.id)}`, {
+                method: "POST",
+                body: JSON.stringify({ username, password: "restaurant-password", restaurantId: restaurant.id })
+            });
+            assert.equal(pendingAdminLogin.status, 403, `${name} admin should remain locked before approval.`);
 
             const activate = await request(port, "/api/super-admin/restaurants/status", {
                 method: "POST",
-                body: JSON.stringify({ restaurantId: response.data.restaurant.id, status: "active" })
+                body: JSON.stringify({ restaurantId: restaurant.id, status: "active" })
             }, superLogin.cookie);
-            assert.equal(activate.status, 200, `${name} should be approved.`);
-            return response.data.restaurant;
+            assert.equal(activate.status, 200, `${name} should be approved by Super Admin.`);
+            return restaurant;
         };
 
         const restaurantA = await createRestaurant("Tenant A Kitchen", "tenant-a-admin");

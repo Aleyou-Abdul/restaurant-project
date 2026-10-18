@@ -173,6 +173,24 @@ const server = http.createServer(async (req, res) => {
         });
     }
 
+    if (req.method === "POST" && requestUrl.pathname === "/api/business-applications") {
+        const body = await readJsonBody(req);
+        const restaurant = await createBusinessApplication(body);
+        logServerEvent("info", "New business application received.", {
+            restaurantId: restaurant.id,
+            businessType: restaurant.businessType,
+            ip: clientIp
+        });
+        return sendJson(res, 201, {
+            ok: true,
+            message: "Application received. PlateRoute will verify your business before activating your dashboard.",
+            application: {
+                businessName: restaurant.name,
+                status: restaurant.status
+            }
+        });
+    }
+
     if (req.method === "GET" && requestUrl.pathname === "/api/food-search") {
         const query = String(requestUrl.searchParams.get("query") || "").trim().toLowerCase();
         const selectedCategory = String(requestUrl.searchParams.get("category") || "").trim().toLowerCase();
@@ -601,16 +619,6 @@ const server = http.createServer(async (req, res) => {
         ]);
     }
 
-    if (req.method === "POST" && requestUrl.pathname === "/api/super-admin/restaurants") {
-        if (!isSuperAdminAuthenticated(req)) {
-            return sendJson(res, 401, { ok: false, message: "Unauthorized. Please log in as Super Admin." });
-        }
-
-        const body = await readJsonBody(req);
-        const restaurant = await createPlatformRestaurant(body);
-        return sendJson(res, 201, { ok: true, message: "Restaurant created. Approve it when onboarding is complete.", restaurant });
-    }
-
     if (req.method === "POST" && requestUrl.pathname === "/api/super-admin/restaurants/status") {
         if (!isSuperAdminAuthenticated(req)) {
             return sendJson(res, 401, { ok: false, message: "Unauthorized. Please log in as Super Admin." });
@@ -683,6 +691,15 @@ const server = http.createServer(async (req, res) => {
         const username = String(body.username || "").trim();
         const password = String(body.password || "");
         const loginRestaurantId = normalizeRestaurantId(body.restaurantId || requestRestaurantId);
+        const restaurant = await getRestaurantById(loginRestaurantId);
+
+        if (!restaurant || !restaurant.approved || restaurant.suspended || restaurant.status !== "active") {
+            return sendJson(res, 403, {
+                ok: false,
+                message: "This business dashboard is awaiting PlateRoute approval."
+            });
+        }
+
         const restaurantAdmin = await findRestaurantAdminUser(username, loginRestaurantId);
         const usesLegacyDefaultAdmin = loginRestaurantId === defaultRestaurantId &&
             username === adminUsername &&
@@ -705,8 +722,6 @@ const server = http.createServer(async (req, res) => {
             expiresAt: Date.now() + sessionTtlMs
         });
         logServerEvent("info", "Admin login successful.", { ip: clientIp, username });
-        const restaurant = await getRestaurantById(loginRestaurantId);
-
         return sendJson(res, 200, {
             ok: true,
             message: "Login successful.",
@@ -727,6 +742,15 @@ const server = http.createServer(async (req, res) => {
         const username = normalizeUsername(body.username || "");
         const password = String(body.password || "");
         const loginRestaurantId = normalizeRestaurantId(body.restaurantId || requestRestaurantId);
+        const restaurant = await getRestaurantById(loginRestaurantId);
+
+        if (!restaurant || !restaurant.approved || restaurant.suspended || restaurant.status !== "active") {
+            return sendJson(res, 403, {
+                ok: false,
+                message: "This business dashboard is awaiting PlateRoute approval."
+            });
+        }
+
         const user = await findStaffUser(username, loginRestaurantId);
 
         if (!user || !verifyPasswordHash(password, user.passwordHash)) {
@@ -1423,6 +1447,12 @@ async function initializeDatabase() {
             delivery_available INTEGER NOT NULL DEFAULT 1,
             rating REAL NOT NULL DEFAULT 0,
             business_type TEXT NOT NULL DEFAULT 'restaurant',
+            owner_name TEXT NOT NULL DEFAULT '',
+            owner_phone TEXT NOT NULL DEFAULT '',
+            city TEXT NOT NULL DEFAULT '',
+            state TEXT NOT NULL DEFAULT '',
+            application_note TEXT NOT NULL DEFAULT '',
+            registration_source TEXT NOT NULL DEFAULT 'manual',
             status TEXT NOT NULL DEFAULT 'pending',
             approved INTEGER NOT NULL DEFAULT 0,
             suspended INTEGER NOT NULL DEFAULT 0,
@@ -1474,6 +1504,12 @@ async function initializeDatabase() {
     await ensureTableColumn("restaurant_payment_settings", "paystack_public_key", "TEXT NOT NULL DEFAULT ''");
     await ensureTableColumn("restaurant_payment_settings", "paystack_secret_key_encrypted", "TEXT NOT NULL DEFAULT ''");
     await ensureTableColumn("restaurants", "business_type", "TEXT NOT NULL DEFAULT 'restaurant'");
+    await ensureTableColumn("restaurants", "owner_name", "TEXT NOT NULL DEFAULT ''");
+    await ensureTableColumn("restaurants", "owner_phone", "TEXT NOT NULL DEFAULT ''");
+    await ensureTableColumn("restaurants", "city", "TEXT NOT NULL DEFAULT ''");
+    await ensureTableColumn("restaurants", "state", "TEXT NOT NULL DEFAULT ''");
+    await ensureTableColumn("restaurants", "application_note", "TEXT NOT NULL DEFAULT ''");
+    await ensureTableColumn("restaurants", "registration_source", "TEXT NOT NULL DEFAULT 'manual'");
     await ensureDefaultStaffUserFromEnv();
     await migrateJsonDataIfNeeded();
     await ensureDefaultRestaurantSeed();
@@ -1705,6 +1741,14 @@ function getClientIp(req) {
 }
 
 function getRateLimitConfig(pathname) {
+    if (pathname === "/api/business-applications") {
+        return {
+            scope: "business-application",
+            max: 3,
+            windowMs: 60 * 60 * 1000
+        };
+    }
+
     if (pathname === "/api/admin/login" || pathname === "/api/staff/login") {
         return {
             scope: "login",
@@ -2086,6 +2130,18 @@ function cleanupSessionStore(store) {
     });
 }
 
+function clearRestaurantSessions(restaurantId) {
+    const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
+
+    [adminSessions, staffSessions].forEach((store) => {
+        store.forEach((session, token) => {
+            if (session && normalizeRestaurantId(session.restaurantId) === normalizedRestaurantId) {
+                store.delete(token);
+            }
+        });
+    });
+}
+
 async function ensureTableColumn(tableName, columnName, columnDefinition) {
     const rows = await dbAll(`PRAGMA table_info(${tableName})`);
     const hasColumn = rows.some((row) => String(row.name || "").toLowerCase() === String(columnName || "").toLowerCase());
@@ -2119,6 +2175,27 @@ function normalizeBusinessType(value) {
     return String(value || "").trim().toLowerCase() === "home-vendor"
         ? "home-vendor"
         : "restaurant";
+}
+
+function normalizeApplicationValue(value) {
+    return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+function isValidApplicationPhone(value) {
+    return /^[+0-9][0-9\s()-]{6,24}$/.test(String(value || "").trim());
+}
+
+async function createAvailableRestaurantSlug(name) {
+    const baseSlug = normalizeRestaurantSlug(name).slice(0, 56);
+    let candidate = baseSlug;
+    let attempt = 2;
+
+    while (await dbGet("SELECT id FROM restaurants WHERE slug = ?", [candidate])) {
+        candidate = `${baseSlug.slice(0, 52)}-${attempt}`;
+        attempt += 1;
+    }
+
+    return candidate;
 }
 
 function getRequestRestaurantId(requestUrl, req, fallback = defaultRestaurantId) {
@@ -2234,7 +2311,8 @@ async function ensureDefaultRestaurantSeed() {
 async function readRestaurants() {
     const rows = await dbAll(`
         SELECT id, slug, name, logo_path, phone, email, address, opening_time, closing_time,
-               delivery_available, rating, business_type, status, approved, suspended, created_at, updated_at
+               delivery_available, rating, business_type, owner_name, owner_phone, city, state,
+               application_note, registration_source, status, approved, suspended, created_at, updated_at
         FROM restaurants
         ORDER BY datetime(created_at) DESC, name ASC
     `);
@@ -2252,6 +2330,12 @@ async function readRestaurants() {
         deliveryAvailable: Boolean(row.delivery_available),
         rating: Number(row.rating || 0),
         businessType: normalizeBusinessType(row.business_type),
+        ownerName: row.owner_name || "",
+        ownerPhone: row.owner_phone || "",
+        city: row.city || "",
+        state: row.state || "",
+        applicationNote: row.application_note || "",
+        registrationSource: row.registration_source || "manual",
         status: row.status || "pending",
         approved: Boolean(row.approved),
         suspended: Boolean(row.suspended),
@@ -2264,7 +2348,8 @@ async function getRestaurantById(restaurantId) {
     const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
     const row = await dbGet(
         `SELECT id, slug, name, logo_path, phone, email, address, opening_time, closing_time,
-                delivery_available, rating, business_type, status, approved, suspended, created_at, updated_at
+                delivery_available, rating, business_type, owner_name, owner_phone, city, state,
+                application_note, registration_source, status, approved, suspended, created_at, updated_at
          FROM restaurants WHERE id = ?`,
         [normalizedRestaurantId]
     );
@@ -2286,6 +2371,12 @@ async function getRestaurantById(restaurantId) {
         deliveryAvailable: Boolean(row.delivery_available),
         rating: Number(row.rating || 0),
         businessType: normalizeBusinessType(row.business_type),
+        ownerName: row.owner_name || "",
+        ownerPhone: row.owner_phone || "",
+        city: row.city || "",
+        state: row.state || "",
+        applicationNote: row.application_note || "",
+        registrationSource: row.registration_source || "manual",
         status: row.status || "pending",
         approved: Boolean(row.approved),
         suspended: Boolean(row.suspended),
@@ -2476,34 +2567,63 @@ async function saveRestaurantAdminUser(user) {
     );
 }
 
-async function createPlatformRestaurant(input) {
-    const name = String(input.name || "").trim();
-    const slug = normalizeRestaurantSlug(input.slug || name);
-    const adminUsernameValue = normalizeUsername(input.adminUsername);
+async function createBusinessApplication(input) {
+    if (String(input.website || "").trim() || String(input.acceptedTerms || "") !== "on") {
+        throw new Error("Please confirm that the application information is correct.");
+    }
+
+    const name = normalizeApplicationValue(input.name);
+    const ownerName = normalizeApplicationValue(input.ownerName);
+    const phone = normalizeApplicationValue(input.phone);
+    const ownerPhone = normalizeApplicationValue(input.ownerPhone || phone);
+    const email = normalizeApplicationValue(input.email).toLowerCase();
+    const address = normalizeApplicationValue(input.address);
+    const city = normalizeApplicationValue(input.city);
+    const state = normalizeApplicationValue(input.state);
+    const applicationNote = normalizeApplicationValue(input.applicationNote);
+    const rawAdminUsername = String(input.adminUsername || "").trim().toLowerCase();
+    const adminUsernameValue = normalizeUsername(rawAdminUsername);
     const adminPasswordValue = String(input.adminPassword || "");
     const businessType = normalizeBusinessType(input.businessType);
 
-    if (!name || !adminUsernameValue || adminPasswordValue.length < 8) {
-        throw new Error("Restaurant name, admin username, and an 8-character password are required.");
+    if (name.length < 2 || name.length > 120) {
+        throw new Error("Enter a business name between 2 and 120 characters.");
+    }
+    if (ownerName.length < 2 || ownerName.length > 120) {
+        throw new Error("Enter the business owner's full name.");
+    }
+    if (!isValidApplicationPhone(phone) || !isValidApplicationPhone(ownerPhone)) {
+        throw new Error("Enter valid business and owner phone numbers.");
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 160) {
+        throw new Error("Enter a valid business email address.");
+    }
+    if (!address || !city || !state) {
+        throw new Error("Enter the business address, city, and state.");
+    }
+    if (applicationNote.length < 10 || applicationNote.length > 500) {
+        throw new Error("Tell us about the business in 10 to 500 characters.");
+    }
+    if (!/^[a-z0-9._-]{3,40}$/.test(rawAdminUsername)) {
+        throw new Error("Choose an admin username using 3 to 40 letters, numbers, dots, hyphens, or underscores.");
+    }
+    if (adminPasswordValue.length < 8 || adminPasswordValue.length > 128) {
+        throw new Error("Choose an admin password between 8 and 128 characters.");
     }
 
-    const existing = await dbGet("SELECT id FROM restaurants WHERE slug = ?", [slug]);
-    if (existing) {
-        throw new Error("This restaurant slug is already in use.");
-    }
-
+    const slug = await createAvailableRestaurantSlug(name);
     const restaurantId = `restaurant-${slug}-${crypto.randomBytes(3).toString("hex")}`;
     const now = new Date().toISOString();
     const platformSettings = await readPlatformSettings();
-    // A tenant must never inherit the demo restaurant's dishes or delivery zones.
-    // New restaurants start with an empty menu and configure their own data in Admin.
+    // Applications create an isolated empty workspace, never a copy of another restaurant's menu or data.
     const siteData = createNewRestaurantSiteData();
     siteData.site = {
         ...siteData.site,
         restaurantName: name,
-        phone: String(input.phone || "").trim(),
-        email: String(input.email || "").trim(),
-        location: String(input.address || "").trim(),
+        phone,
+        email,
+        location: `${address}, ${city}, ${state}`,
+        whatsappNumber: phone.replace(/\D/g, ""),
         openingTime: siteData.site.openingTime,
         closingTime: siteData.site.closingTime
     };
@@ -2511,18 +2631,20 @@ async function createPlatformRestaurant(input) {
     await dbRun(
         `INSERT INTO restaurants (
             id, slug, name, phone, email, address, opening_time, closing_time, business_type,
+            owner_name, owner_phone, city, state, application_note, registration_source,
             delivery_available, status, approved, suspended, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'pending', 0, 0, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'self-service', 1, 'pending', 0, 0, ?, ?)`,
         [
-            restaurantId, slug, name, siteData.site.phone, siteData.site.email, siteData.site.location,
-            siteData.site.openingTime, siteData.site.closingTime, businessType, now, now
+            restaurantId, slug, name, phone, email, address,
+            siteData.site.openingTime, siteData.site.closingTime, businessType,
+            ownerName, ownerPhone, city, state, applicationNote, now, now
         ]
     );
     await saveSiteData(siteData, restaurantId);
     await saveRestaurantAdminUser({
         restaurantId,
         username: adminUsernameValue,
-        displayName: String(input.adminDisplayName || adminUsernameValue).trim(),
+        displayName: ownerName,
         passwordHash: createPasswordHash(adminPasswordValue),
         blocked: false
     });
@@ -2557,6 +2679,7 @@ async function updatePlatformRestaurantStatus(restaurantId, requestedStatus) {
          WHERE id = ?`,
         [status, isActive ? 1 : 0, status === "suspended" ? 1 : 0, new Date().toISOString(), normalizedRestaurantId]
     );
+    clearRestaurantSessions(normalizedRestaurantId);
 
     return (await readRestaurants()).find((restaurant) => restaurant.id === normalizedRestaurantId) || null;
 }
@@ -2603,6 +2726,7 @@ async function deletePlatformRestaurant(restaurantId) {
     await dbRun("DELETE FROM restaurant_payment_settings WHERE restaurant_id = ?", [normalizedRestaurantId]);
     await dbRun("DELETE FROM closing_history WHERE restaurant_id = ?", [normalizedRestaurantId]);
     await dbRun("DELETE FROM restaurants WHERE id = ?", [normalizedRestaurantId]);
+    clearRestaurantSessions(normalizedRestaurantId);
     ordersCache.delete(normalizedRestaurantId);
     siteDataCache.delete(normalizedRestaurantId);
 }

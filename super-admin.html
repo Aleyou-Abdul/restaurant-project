@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PlateRoute Platform Dashboard</title>
-    <link rel="stylesheet" href="style.css?v=20261017b">
+    <link rel="stylesheet" href="style.css?v=20261018a">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="super-admin-body">
@@ -15,7 +15,7 @@
             <nav>
                 <a href="#overview">Overview</a>
                 <a href="#restaurants">Restaurants</a>
-                <a href="#create-restaurant">Add Restaurant</a>
+                <a href="#application-review">Applications</a>
                 <a href="#payment-settings">Payment Settings</a>
                 <a href="#platform-settings">Platform Settings</a>
             </nav>
@@ -39,29 +39,22 @@
             </section>
 
             <section id="restaurants" class="super-panel">
-                <div class="super-panel-heading"><div><h2>Businesses</h2><p>Approve, suspend, or remove restaurant and home-vendor tenants.</p></div></div>
+                <div class="super-panel-heading"><div><h2>Businesses</h2><p>Review self-service applications before approving, suspending, or removing businesses.</p></div></div>
                 <div class="super-table-wrap">
                     <table class="super-table">
-                        <thead><tr><th>Business</th><th>Type</th><th>Contact</th><th>Status</th><th>Actions</th></tr></thead>
+                        <thead><tr><th>Business</th><th>Applicant</th><th>Contact</th><th>Status</th><th>Actions</th></tr></thead>
                         <tbody id="restaurant-list"></tbody>
                     </table>
                 </div>
             </section>
 
-            <section id="create-restaurant" class="super-panel">
-                <div class="super-panel-heading"><div><h2>Add Business</h2><p>Manual onboarding creates a separate restaurant or home-vendor workspace and admin account.</p></div></div>
-                <form id="restaurant-create-form" class="super-form-grid">
-                    <label>Restaurant name<input name="name" required></label>
-                    <label>Business type<select name="businessType"><option value="restaurant">Restaurant</option><option value="home-vendor">Home Food Vendor</option></select></label>
-                    <label>URL name<input name="slug" placeholder="e.g. tasty-kitchen"></label>
-                    <label>Phone<input name="phone" type="tel"></label>
-                    <label>Email<input name="email" type="email"></label>
-                    <label class="super-form-wide">Address<input name="address"></label>
-                    <label>Admin display name<input name="adminDisplayName" required></label>
-                    <label>Admin username<input name="adminUsername" required autocomplete="off"></label>
-                    <label class="super-form-wide">Temporary admin password<input name="adminPassword" type="password" required minlength="8" autocomplete="new-password"></label>
-                    <div class="super-form-wide"><button type="submit">Create Restaurant</button></div>
-                </form>
+            <section id="application-review" class="super-panel" hidden>
+                <div class="super-panel-heading"><div><h2 id="application-review-title">Business application</h2><p>Check the applicant's details before making the business visible to customers.</p></div><button id="application-review-close" class="super-secondary-btn" type="button">Close review</button></div>
+                <dl id="application-review-details" class="super-application-details"></dl>
+                <div class="super-application-actions">
+                    <button id="application-review-approve" type="button">Approve and activate</button>
+                    <button id="application-review-delete" class="danger" type="button">Delete application</button>
+                </div>
             </section>
 
             <section id="payment-settings" class="super-panel">
@@ -85,6 +78,6 @@
             </section>
         </main>
     </div>
-    <script src="super-admin.js"></script>
+    <script src="super-admin.js?v=20261018a"></script>
 </body>
 </html>

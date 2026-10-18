@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join PlateRoute</title>
+    <link rel="stylesheet" href="style.css?v=20261018a">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="business-registration-body">
+    <main class="business-registration-shell">
+        <section class="business-registration-intro">
+            <a class="business-registration-brand" href="restaurants.html">Plate<span>Route</span></a>
+            <p class="directory-kicker">Business partner application</p>
+            <h1>Bring your food business to more customers.</h1>
+            <p>Restaurants and home food vendors can apply to sell on PlateRoute. Every application is reviewed before it becomes visible to customers.</p>
+            <ol class="business-registration-steps">
+                <li><strong>Apply</strong><span>Tell us about your food business.</span></li>
+                <li><strong>We verify</strong><span>PlateRoute confirms your contact and business details.</span></li>
+                <li><strong>Start selling</strong><span>After approval, use your dashboard to add your menu.</span></li>
+            </ol>
+            <p class="business-registration-note">Do not enter Paystack keys here. Payment setup happens only after verification.</p>
+        </section>
+
+        <section class="business-registration-card">
+            <div class="business-registration-card-heading">
+                <p class="directory-kicker">Apply now</p>
+                <h2>Register your business</h2>
+                <p>Fields marked required are used only to review your application and create your future dashboard.</p>
+            </div>
+            <p id="business-registration-status" class="payment-status" role="status" aria-live="polite"></p>
+            <form id="business-registration-form" class="business-registration-form">
+                <label>Business type
+                    <select name="businessType" required>
+                        <option value="restaurant">Restaurant</option>
+                        <option value="home-vendor">Home Food Vendor</option>
+                    </select>
+                </label>
+                <label>Business name
+                    <input name="name" required maxlength="120" autocomplete="organization" placeholder="e.g. Amina's Kitchen">
+                </label>
+                <label>Owner or manager name
+                    <input name="ownerName" required maxlength="120" autocomplete="name" placeholder="Your full name">
+                </label>
+                <label>Business phone / WhatsApp
+                    <input name="phone" type="tel" required maxlength="25" autocomplete="tel" placeholder="0800 000 0000">
+                </label>
+                <label>Owner phone
+                    <input name="ownerPhone" type="tel" required maxlength="25" autocomplete="tel" placeholder="0800 000 0000">
+                </label>
+                <label>Email address
+                    <input name="email" type="email" required maxlength="160" autocomplete="email" placeholder="you@example.com">
+                </label>
+                <label class="business-registration-wide">Business address
+                    <input name="address" required maxlength="180" autocomplete="street-address" placeholder="Street, building, or landmark">
+                </label>
+                <label>City or area
+                    <input name="city" required maxlength="80" autocomplete="address-level2" placeholder="e.g. Kaduna">
+                </label>
+                <label>State
+                    <input name="state" required maxlength="80" autocomplete="address-level1" placeholder="e.g. Kaduna State">
+                </label>
+                <label class="business-registration-wide">Tell us about the food you sell
+                    <textarea name="applicationNote" required minlength="10" maxlength="500" rows="4" placeholder="For example: local meals, shawarma, snacks, pre-order dishes, delivery area..."></textarea>
+                </label>
+                <fieldset class="business-registration-account">
+                    <legend>Your future dashboard login</legend>
+                    <p>This will only work after PlateRoute approves your business.</p>
+                    <div class="business-registration-form">
+                        <label>Admin username
+                            <input name="adminUsername" required minlength="3" maxlength="40" autocomplete="username" pattern="[A-Za-z0-9._-]+" placeholder="e.g. aminaskitchen">
+                        </label>
+                        <label>Password
+                            <input name="adminPassword" type="password" required minlength="8" maxlength="128" autocomplete="new-password" placeholder="At least 8 characters">
+                        </label>
+                        <label class="business-registration-wide">Confirm password
+                            <input name="confirmPassword" type="password" required minlength="8" maxlength="128" autocomplete="new-password" placeholder="Repeat your password">
+                        </label>
+                    </div>
+                </fieldset>
+                <label class="business-registration-consent">
+                    <input name="acceptedTerms" type="checkbox" required>
+                    <span>I confirm that I own or manage this business and that the information is correct.</span>
+                </label>
+                <label class="business-registration-honeypot" aria-hidden="true">Website
+                    <input name="website" type="text" tabindex="-1" autocomplete="off">
+                </label>
+                <div class="business-registration-wide"><button id="business-registration-submit" type="submit">Submit application</button></div>
+            </form>
+            <p class="business-registration-login-link">Already approved? <a href="admin-login.html">Open your admin login</a>.</p>
+        </section>
+    </main>
+    <script src="business-registration.js?v=20261018a"></script>
+</body>
+</html>
