@@ -207,6 +207,14 @@ The platform foundation adds isolated restaurant records, restaurant-specific ad
 
 Restaurants and Home Food Vendors apply at `/business-registration.html`. The form collects the business type, business and owner contact details, address, a short business description, and the future dashboard username and password.
 
+### Location And Nearby Discovery
+
+The registration form uses structured location fields: country, state/FCT, and Local Government Area. Nigeria is supported first with all 37 states/FCT and 774 LGAs. Applicants can also choose **Use my current business location** to save GPS coordinates; if they do not allow location access, PlateRoute uses the selected LGA area as an approximate location until the business provides a precise one.
+
+On the public restaurant and Home Food Vendor pages, customers can choose **Use my location**. PlateRoute then sorts businesses with saved coordinates nearest-first. The permission is optional and is requested only after the customer presses the button. The country/location data structure is ready for more countries to be added later without changing the registration workflow.
+
+The bundled Nigerian administrative data is derived from the [Open Admin Data Nigeria Administrative Divisions dataset](https://github.com/open-admin-data/nigeria-administrative-divisions), sourced from OCHA COD-AB (HDX) and INEC Nigeria under CC BY-IGO.
+
 Every application starts as **Pending**. Pending businesses cannot appear in PlateRoute discovery, accept customer orders, or sign in to their dashboard. From `/super-admin.html`, the Super Admin reviews the owner details, business address, contact information, and description before choosing **Approve and activate**, **Suspend**, or **Delete application**. Approval makes the business visible and unlocks the owner dashboard; suspension immediately clears active dashboard sessions.
 
 Set `SUPER_ADMIN_USERNAME` and `SUPER_ADMIN_PASSWORD_HASH` in Railway before using the workspace. The Super Admin reviews applications, approves or suspends businesses, removes non-default businesses, configures platform settings, reviews platform orders, and manages each restaurant's payment configuration. Existing Hungry Nomad data remains in the default tenant during the migration.

@@ -77,7 +77,10 @@ document.addEventListener("DOMContentLoaded", () => {
             ["Business phone", restaurant.phone || "Not provided"],
             ["Email", restaurant.email || "Not provided"],
             ["Address", restaurant.address || "Not provided"],
-            ["City / state", [restaurant.city, restaurant.state].filter(Boolean).join(", ") || "Not provided"],
+            ["Location", [restaurant.localGovernment || restaurant.city, restaurant.state, restaurant.country].filter(Boolean).join(", ") || "Not provided"],
+            ["Map location", restaurant.latitude !== null && restaurant.longitude !== null
+                ? `${Number(restaurant.latitude).toFixed(6)}, ${Number(restaurant.longitude).toFixed(6)} (${restaurant.locationSource === "browser-gps" ? "business GPS" : "LGA area"})`
+                : "Not provided"],
             ["About the business", restaurant.applicationNote || "Not provided"],
             ["Submitted", formatDate(restaurant.createdAt)]
         ];

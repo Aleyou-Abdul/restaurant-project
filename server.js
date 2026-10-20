@@ -17,6 +17,7 @@ const backupsDirPath = path.join(storageRootPath, "backups");
 const logsDirPath = path.join(storageRootPath, "logs");
 const logFilePath = path.join(logsDirPath, "server.log");
 const uploadsDirPath = path.join(storageRootPath, "uploads");
+const nigeriaLocationsFilePath = path.join(rootDir, "nigeria-locations.json");
 const defaultRestaurantId = "hungerstation-default";
 const defaultRestaurantSlug = "main";
 const demoHomeVendorId = "hungerstation-demo-vendor";
@@ -64,6 +65,7 @@ const staticFileCache = new Map();
 const ordersCache = new Map();
 const siteDataCache = new Map();
 const orderStatusUpdateQueues = new Map();
+let nigeriaLocationDataCache = null;
 const db = new sqlite3.Database(databaseFilePath);
 const databaseReady = initializeDatabase();
 let backupTimerId = null;
@@ -1451,6 +1453,11 @@ async function initializeDatabase() {
             owner_phone TEXT NOT NULL DEFAULT '',
             city TEXT NOT NULL DEFAULT '',
             state TEXT NOT NULL DEFAULT '',
+            country TEXT NOT NULL DEFAULT 'Nigeria',
+            local_government TEXT NOT NULL DEFAULT '',
+            latitude REAL,
+            longitude REAL,
+            location_source TEXT NOT NULL DEFAULT 'not-set',
             application_note TEXT NOT NULL DEFAULT '',
             registration_source TEXT NOT NULL DEFAULT 'manual',
             status TEXT NOT NULL DEFAULT 'pending',
@@ -1508,6 +1515,11 @@ async function initializeDatabase() {
     await ensureTableColumn("restaurants", "owner_phone", "TEXT NOT NULL DEFAULT ''");
     await ensureTableColumn("restaurants", "city", "TEXT NOT NULL DEFAULT ''");
     await ensureTableColumn("restaurants", "state", "TEXT NOT NULL DEFAULT ''");
+    await ensureTableColumn("restaurants", "country", "TEXT NOT NULL DEFAULT 'Nigeria'");
+    await ensureTableColumn("restaurants", "local_government", "TEXT NOT NULL DEFAULT ''");
+    await ensureTableColumn("restaurants", "latitude", "REAL");
+    await ensureTableColumn("restaurants", "longitude", "REAL");
+    await ensureTableColumn("restaurants", "location_source", "TEXT NOT NULL DEFAULT 'not-set'");
     await ensureTableColumn("restaurants", "application_note", "TEXT NOT NULL DEFAULT ''");
     await ensureTableColumn("restaurants", "registration_source", "TEXT NOT NULL DEFAULT 'manual'");
     await ensureDefaultStaffUserFromEnv();
@@ -2185,6 +2197,65 @@ function isValidApplicationPhone(value) {
     return /^[+0-9][0-9\s()-]{6,24}$/.test(String(value || "").trim());
 }
 
+function getNigeriaLocationData() {
+    if (nigeriaLocationDataCache) return nigeriaLocationDataCache;
+
+    const rawData = fs.readFileSync(nigeriaLocationsFilePath, "utf8");
+    const parsedData = safeParseJson(rawData);
+    if (!parsedData || !parsedData.countries || !parsedData.countries.Nigeria || !parsedData.countries.Nigeria.states) {
+        throw new Error("The PlateRoute location list is unavailable. Please try again shortly.");
+    }
+
+    nigeriaLocationDataCache = parsedData;
+    return nigeriaLocationDataCache;
+}
+
+function findSupportedApplicationLocation(country, state, localGovernment) {
+    if (country !== "Nigeria") {
+        throw new Error("Business registration is currently available in Nigeria only.");
+    }
+
+    const nigeria = getNigeriaLocationData().countries.Nigeria;
+    const selectedState = nigeria.states[state];
+    if (!selectedState) {
+        throw new Error("Select a valid Nigerian state or FCT.");
+    }
+
+    const selectedLocalGovernment = (selectedState.localGovernments || []).find((item) => item.name === localGovernment);
+    if (!selectedLocalGovernment) {
+        throw new Error("Select a valid Local Government Area for the chosen state.");
+    }
+
+    return selectedLocalGovernment;
+}
+
+function normalizeApplicationCoordinates(latitudeValue, longitudeValue, fallbackLocation) {
+    const hasLatitude = String(latitudeValue || "").trim() !== "";
+    const hasLongitude = String(longitudeValue || "").trim() !== "";
+
+    if (!hasLatitude && !hasLongitude) {
+        return {
+            latitude: Number(fallbackLocation.latitude),
+            longitude: Number(fallbackLocation.longitude),
+            source: "lga-centroid"
+        };
+    }
+
+    const latitude = Number(latitudeValue);
+    const longitude = Number(longitudeValue);
+    if (!hasLatitude || !hasLongitude || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+        throw new Error("The saved GPS location is invalid. Please capture it again or clear it and submit using your LGA.");
+    }
+
+    return { latitude, longitude, source: "browser-gps" };
+}
+
+function normalizeStoredCoordinate(value) {
+    return value === null || value === undefined || String(value).trim() === "" || !Number.isFinite(Number(value))
+        ? null
+        : Number(value);
+}
+
 async function createAvailableRestaurantSlug(name) {
     const baseSlug = normalizeRestaurantSlug(name).slice(0, 56);
     let candidate = baseSlug;
@@ -2311,8 +2382,9 @@ async function ensureDefaultRestaurantSeed() {
 async function readRestaurants() {
     const rows = await dbAll(`
         SELECT id, slug, name, logo_path, phone, email, address, opening_time, closing_time,
-               delivery_available, rating, business_type, owner_name, owner_phone, city, state,
-               application_note, registration_source, status, approved, suspended, created_at, updated_at
+               delivery_available, rating, business_type, owner_name, owner_phone, city, state, country,
+               local_government, latitude, longitude, location_source, application_note, registration_source,
+               status, approved, suspended, created_at, updated_at
         FROM restaurants
         ORDER BY datetime(created_at) DESC, name ASC
     `);
@@ -2334,6 +2406,11 @@ async function readRestaurants() {
         ownerPhone: row.owner_phone || "",
         city: row.city || "",
         state: row.state || "",
+        country: row.country || "Nigeria",
+        localGovernment: row.local_government || "",
+        latitude: normalizeStoredCoordinate(row.latitude),
+        longitude: normalizeStoredCoordinate(row.longitude),
+        locationSource: row.location_source || "not-set",
         applicationNote: row.application_note || "",
         registrationSource: row.registration_source || "manual",
         status: row.status || "pending",
@@ -2348,8 +2425,9 @@ async function getRestaurantById(restaurantId) {
     const normalizedRestaurantId = normalizeRestaurantId(restaurantId);
     const row = await dbGet(
         `SELECT id, slug, name, logo_path, phone, email, address, opening_time, closing_time,
-                delivery_available, rating, business_type, owner_name, owner_phone, city, state,
-                application_note, registration_source, status, approved, suspended, created_at, updated_at
+                delivery_available, rating, business_type, owner_name, owner_phone, city, state, country,
+                local_government, latitude, longitude, location_source, application_note, registration_source,
+                status, approved, suspended, created_at, updated_at
          FROM restaurants WHERE id = ?`,
         [normalizedRestaurantId]
     );
@@ -2375,6 +2453,11 @@ async function getRestaurantById(restaurantId) {
         ownerPhone: row.owner_phone || "",
         city: row.city || "",
         state: row.state || "",
+        country: row.country || "Nigeria",
+        localGovernment: row.local_government || "",
+        latitude: normalizeStoredCoordinate(row.latitude),
+        longitude: normalizeStoredCoordinate(row.longitude),
+        locationSource: row.location_source || "not-set",
         applicationNote: row.application_note || "",
         registrationSource: row.registration_source || "manual",
         status: row.status || "pending",
@@ -2387,7 +2470,28 @@ async function getRestaurantById(restaurantId) {
 
 async function readPublicRestaurants() {
     const restaurants = await readRestaurants();
-    return restaurants.filter((restaurant) => restaurant.approved && !restaurant.suspended && restaurant.status === "active");
+    return restaurants
+        .filter((restaurant) => restaurant.approved && !restaurant.suspended && restaurant.status === "active")
+        .map((restaurant) => ({
+            id: restaurant.id,
+            slug: restaurant.slug,
+            name: restaurant.name,
+            logoPath: restaurant.logoPath,
+            phone: restaurant.phone,
+            address: restaurant.address,
+            openingTime: restaurant.openingTime,
+            closingTime: restaurant.closingTime,
+            deliveryAvailable: restaurant.deliveryAvailable,
+            rating: restaurant.rating,
+            businessType: restaurant.businessType,
+            city: restaurant.city,
+            state: restaurant.state,
+            country: restaurant.country,
+            localGovernment: restaurant.localGovernment,
+            latitude: restaurant.latitude,
+            longitude: restaurant.longitude,
+            locationSource: restaurant.locationSource
+        }));
 }
 
 async function readAllPlatformOrders() {
@@ -2578,8 +2682,9 @@ async function createBusinessApplication(input) {
     const ownerPhone = normalizeApplicationValue(input.ownerPhone || phone);
     const email = normalizeApplicationValue(input.email).toLowerCase();
     const address = normalizeApplicationValue(input.address);
-    const city = normalizeApplicationValue(input.city);
+    const country = normalizeApplicationValue(input.country);
     const state = normalizeApplicationValue(input.state);
+    const localGovernment = normalizeApplicationValue(input.localGovernment);
     const applicationNote = normalizeApplicationValue(input.applicationNote);
     const rawAdminUsername = String(input.adminUsername || "").trim().toLowerCase();
     const adminUsernameValue = normalizeUsername(rawAdminUsername);
@@ -2598,8 +2703,8 @@ async function createBusinessApplication(input) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 160) {
         throw new Error("Enter a valid business email address.");
     }
-    if (!address || !city || !state) {
-        throw new Error("Enter the business address, city, and state.");
+    if (!address || !country || !state || !localGovernment) {
+        throw new Error("Enter the business address, country, state, and Local Government Area.");
     }
     if (applicationNote.length < 10 || applicationNote.length > 500) {
         throw new Error("Tell us about the business in 10 to 500 characters.");
@@ -2611,6 +2716,8 @@ async function createBusinessApplication(input) {
         throw new Error("Choose an admin password between 8 and 128 characters.");
     }
 
+    const selectedLocation = findSupportedApplicationLocation(country, state, localGovernment);
+    const coordinates = normalizeApplicationCoordinates(input.latitude, input.longitude, selectedLocation);
     const slug = await createAvailableRestaurantSlug(name);
     const restaurantId = `restaurant-${slug}-${crypto.randomBytes(3).toString("hex")}`;
     const now = new Date().toISOString();
@@ -2622,7 +2729,7 @@ async function createBusinessApplication(input) {
         restaurantName: name,
         phone,
         email,
-        location: `${address}, ${city}, ${state}`,
+        location: `${address}, ${localGovernment}, ${state}, ${country}`,
         whatsappNumber: phone.replace(/\D/g, ""),
         openingTime: siteData.site.openingTime,
         closingTime: siteData.site.closingTime
@@ -2631,13 +2738,15 @@ async function createBusinessApplication(input) {
     await dbRun(
         `INSERT INTO restaurants (
             id, slug, name, phone, email, address, opening_time, closing_time, business_type,
-            owner_name, owner_phone, city, state, application_note, registration_source,
+            owner_name, owner_phone, city, state, country, local_government, latitude, longitude, location_source,
+            application_note, registration_source,
             delivery_available, status, approved, suspended, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'self-service', 1, 'pending', 0, 0, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'self-service', 1, 'pending', 0, 0, ?, ?)`,
         [
             restaurantId, slug, name, phone, email, address,
             siteData.site.openingTime, siteData.site.closingTime, businessType,
-            ownerName, ownerPhone, city, state, applicationNote, now, now
+            ownerName, ownerPhone, localGovernment, state, country, localGovernment,
+            coordinates.latitude, coordinates.longitude, coordinates.source, applicationNote, now, now
         ]
     );
     await saveSiteData(siteData, restaurantId);

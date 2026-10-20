@@ -141,8 +141,9 @@ async function main() {
                     ownerPhone: "+2348000000000",
                     email: `${username}@example.test`,
                     address: "1 Test Street",
-                    city: "Kaduna",
-                    state: "Kaduna State",
+                    country: "Nigeria",
+                    state: "Kaduna",
+                    localGovernment: "Kaduna North",
                     applicationNote: "A verified test business for tenant isolation checks.",
                     adminUsername: username,
                     adminPassword: "restaurant-password",
@@ -368,6 +369,10 @@ async function main() {
         assert.equal(publicRestaurantA.closingTime, "23:00", "Restaurant Admin closing time should update its public listing.");
         assert.equal(publicRestaurantA.logoPath, "images/tenant-a-logo.png", "Restaurant Admin logo should update its public listing.");
         assert.equal(publicRestaurantB.businessType, "home-vendor", "Public directory should retain the business type.");
+        assert.equal(publicRestaurantA.country, "Nigeria", "Public restaurants should retain their country for location-aware browsing.");
+        assert.equal(publicRestaurantA.localGovernment, "Kaduna North", "Public restaurants should retain their Local Government Area.");
+        assert.equal(typeof publicRestaurantA.latitude, "number", "Public restaurants should expose their nearby-sort coordinate without exposing owner data.");
+        assert.equal(Object.hasOwn(publicRestaurantA, "ownerPhone"), false, "Public restaurant listings must not expose owner contact details.");
 
         console.log("Tenant isolation check passed.");
     } finally {

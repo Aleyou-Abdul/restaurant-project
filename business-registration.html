@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Join PlateRoute</title>
-    <link rel="stylesheet" href="style.css?v=20261018a">
+    <link rel="stylesheet" href="style.css?v=20261018b">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="business-registration-body">
@@ -54,12 +54,28 @@
                 <label class="business-registration-wide">Business address
                     <input name="address" required maxlength="180" autocomplete="street-address" placeholder="Street, building, or landmark">
                 </label>
-                <label>City or area
-                    <input name="city" required maxlength="80" autocomplete="address-level2" placeholder="e.g. Kaduna">
+                <label>Country
+                    <select id="business-country" name="country" required disabled>
+                        <option value="">Loading countries...</option>
+                    </select>
                 </label>
                 <label>State
-                    <input name="state" required maxlength="80" autocomplete="address-level1" placeholder="e.g. Kaduna State">
+                    <select id="business-state" name="state" required disabled>
+                        <option value="">Select country first</option>
+                    </select>
                 </label>
+                <label class="business-registration-wide">Local Government Area (LGA)
+                    <select id="business-local-government" name="localGovernment" required disabled>
+                        <option value="">Select state first</option>
+                    </select>
+                </label>
+                <div class="business-registration-wide business-location-capture">
+                    <div><strong>Business map location</strong><p>Optional but recommended. It helps PlateRoute sort nearby businesses. Stand at the business address, then allow location access.</p></div>
+                    <button id="business-location-button" type="button">Use my current business location</button>
+                    <p id="business-location-status" class="business-location-status" role="status" aria-live="polite"></p>
+                    <input id="business-latitude" name="latitude" type="hidden">
+                    <input id="business-longitude" name="longitude" type="hidden">
+                </div>
                 <label class="business-registration-wide">Tell us about the food you sell
                     <textarea name="applicationNote" required minlength="10" maxlength="500" rows="4" placeholder="For example: local meals, shawarma, snacks, pre-order dishes, delivery area..."></textarea>
                 </label>
@@ -90,6 +106,6 @@
             <p class="business-registration-login-link">Already approved? <a href="admin-login.html">Open your admin login</a>.</p>
         </section>
     </main>
-    <script src="business-registration.js?v=20261018a"></script>
+    <script src="business-registration.js?v=20261018b"></script>
 </body>
 </html>

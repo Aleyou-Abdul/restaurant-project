@@ -2,6 +2,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const listEl = document.getElementById("restaurant-directory-list");
     const countEl = document.getElementById("restaurant-count");
     const showLessEl = document.getElementById("restaurant-show-less");
+    const locationActionEl = document.getElementById("restaurant-location-action");
+    const locationStatusEl = document.getElementById("restaurant-location-status");
     const searchToggleEl = document.getElementById("platform-search-toggle");
     const searchPanelEl = document.getElementById("platform-search-panel");
     const searchEl = document.getElementById("platform-search-input");
@@ -17,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let foodCategories = [];
     let selectedFoodCategory = "All";
     let restaurantPreviewExpanded = false;
+    let customerLocation = null;
 
     function wait(milliseconds) {
         return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -77,9 +80,53 @@ document.addEventListener("DOMContentLoaded", () => {
         return window.matchMedia("(max-width: 800px)").matches ? 2 : 3;
     }
 
+    function getRestaurantDistance(restaurant) {
+        // Older businesses may not have saved a location yet; do not treat null as 0,0.
+        if (restaurant.latitude === null || restaurant.latitude === undefined
+            || restaurant.longitude === null || restaurant.longitude === undefined) {
+            return null;
+        }
+        const latitude = Number(restaurant.latitude);
+        const longitude = Number(restaurant.longitude);
+        if (!customerLocation || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+        const radians = (value) => value * Math.PI / 180;
+        const latitudeDelta = radians(latitude - customerLocation.latitude);
+        const longitudeDelta = radians(longitude - customerLocation.longitude);
+        const latitudeA = radians(customerLocation.latitude);
+        const latitudeB = radians(latitude);
+        const distanceFactor = Math.sin(latitudeDelta / 2) ** 2
+            + Math.cos(latitudeA) * Math.cos(latitudeB) * Math.sin(longitudeDelta / 2) ** 2;
+        return 6371 * 2 * Math.atan2(Math.sqrt(distanceFactor), Math.sqrt(1 - distanceFactor));
+    }
+
+    function formatDistance(distance) {
+        if (distance === null) return "";
+        if (distance < 1) return `${Math.max(50, Math.round(distance * 1000 / 50) * 50)} m away`;
+        return `${distance.toFixed(distance < 10 ? 1 : 0)} km away`;
+    }
+
+    function getBusinessLocationLabel(restaurant) {
+        return [restaurant.localGovernment || restaurant.city, restaurant.state, restaurant.country]
+            .filter(Boolean)
+            .join(", ");
+    }
+
+    function sortRestaurantsByDistance(collection) {
+        if (!customerLocation) return collection;
+        return [...collection].sort((left, right) => {
+            const leftDistance = getRestaurantDistance(left);
+            const rightDistance = getRestaurantDistance(right);
+            if (leftDistance === null && rightDistance === null) return left.name.localeCompare(right.name);
+            if (leftDistance === null) return 1;
+            if (rightDistance === null) return -1;
+            return leftDistance - rightDistance;
+        });
+    }
+
     function render() {
         const query = searchEl.value.trim().toLowerCase();
-        const matches = restaurants.filter((restaurant) => `${restaurant.name} ${restaurant.address}`.toLowerCase().includes(query));
+        const matches = sortRestaurantsByDistance(restaurants.filter((restaurant) => `${restaurant.name} ${restaurant.address} ${getBusinessLocationLabel(restaurant)}`.toLowerCase().includes(query)));
         const previewLimit = getRestaurantPreviewLimit();
         const showEverything = isVendorDirectory || Boolean(query) || restaurantPreviewExpanded;
         const visibleRestaurants = showEverything ? matches : matches.slice(0, previewLimit);
@@ -90,17 +137,27 @@ document.addEventListener("DOMContentLoaded", () => {
             showLessEl.hidden = !restaurantPreviewExpanded || Boolean(query) || isVendorDirectory;
         }
         listEl.classList.toggle("is-expanded", showEverything);
-        listEl.innerHTML = visibleRestaurants.map((restaurant) => `
+        listEl.innerHTML = visibleRestaurants.map((restaurant) => {
+            const businessLocation = getBusinessLocationLabel(restaurant);
+            const distance = getRestaurantDistance(restaurant);
+            const distanceLabel = formatDistance(distance);
+            const distanceText = distanceLabel && restaurant.locationSource === "lga-centroid"
+                ? `Around ${distanceLabel}`
+                : distanceLabel;
+            return `
             <article class="restaurant-directory-card${showEverything ? "" : " restaurant-preview-card"}">
                 <div class="restaurant-card-logo"><img src="${escapeHtml(imageSource(restaurant.logoPath))}" alt="${escapeHtml(restaurant.name)} logo"></div>
                 <div class="restaurant-card-content">
                     <div class="restaurant-card-badges"><span class="business-type-badge${restaurant.businessType === "home-vendor" ? " is-vendor" : ""}">${escapeHtml(getBusinessTypeLabel(restaurant.businessType))}</span><span class="restaurant-open-badge">${restaurant.deliveryAvailable ? "Delivery available" : "Pickup only"}</span></div>
                     <h2>${escapeHtml(restaurant.name)}</h2>
                     <p>${escapeHtml(restaurant.address || "Address coming soon")}</p>
+                    ${businessLocation ? `<small class="restaurant-card-location">${escapeHtml(businessLocation)}</small>` : ""}
+                    ${distanceText ? `<small class="restaurant-distance">${escapeHtml(distanceText)}</small>` : ""}
                     <dl><div><dt>Opening hours</dt><dd>${escapeHtml(formatHours(restaurant))}</dd></div><div><dt>Rating</dt><dd>New on PlateRoute</dd></div></dl>
                     <a href="index.html?restaurantId=${encodeURIComponent(restaurant.id)}">${isVendorDirectory ? "See Offers" : "View Menu"}</a>
                 </div>
-            </article>`).join("");
+            </article>`;
+        }).join("");
 
         if (!showEverything && remainingCount > 0) {
             listEl.insertAdjacentHTML("beforeend", `
@@ -114,6 +171,43 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!listEl.innerHTML) {
             listEl.innerHTML = `<p class="directory-empty">No ${isVendorDirectory ? "home food vendor" : "restaurant"} matches that search yet.</p>`;
         }
+    }
+
+    function setLocationStatus(message = "", type = "") {
+        locationStatusEl.textContent = message;
+        locationStatusEl.className = `restaurant-location-status${type ? ` ${type}` : ""}`;
+    }
+
+    function requestCustomerLocation() {
+        if (!navigator.geolocation) {
+            setLocationStatus("Location is not available in this browser.", "error");
+            return;
+        }
+
+        locationActionEl.disabled = true;
+        setLocationStatus("Finding nearby businesses...", "info");
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                customerLocation = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+                locationActionEl.textContent = "Nearest first";
+                setLocationStatus("Businesses are sorted by distance.", "success");
+                locationActionEl.disabled = false;
+                render();
+            },
+            (error) => {
+                const messages = {
+                    1: "Location permission was not granted.",
+                    2: "Your location could not be determined.",
+                    3: "Location request timed out. Please try again."
+                };
+                setLocationStatus(messages[error.code] || "Location could not be determined.", "error");
+                locationActionEl.disabled = false;
+            },
+            { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 }
+        );
     }
 
     function formatPrice(value) {
@@ -218,6 +312,7 @@ document.addEventListener("DOMContentLoaded", () => {
         render();
         renderFood();
     });
+    locationActionEl.addEventListener("click", requestCustomerLocation);
     listEl.addEventListener("click", (event) => {
         if (!event.target.closest("[data-show-all-restaurants]")) return;
         restaurantPreviewExpanded = true;
