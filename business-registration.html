@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Join PlateRoute</title>
-    <link rel="stylesheet" href="style.css?v=20261018b">
+    <link rel="stylesheet" href="style.css?v=20261020a">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="business-registration-body">
@@ -103,9 +103,25 @@
                 </label>
                 <div class="business-registration-wide"><button id="business-registration-submit" type="submit">Submit application</button></div>
             </form>
+            <section id="business-registration-success" class="business-registration-success" hidden tabindex="-1" aria-labelledby="business-registration-success-title">
+                <span class="business-registration-success-icon" aria-hidden="true">✓</span>
+                <p class="directory-kicker">Application submitted</p>
+                <h3 id="business-registration-success-title">Registration successful</h3>
+                <p id="business-registration-success-message"></p>
+                <div class="business-registration-success-next">
+                    <strong>What happens next</strong>
+                    <ul>
+                        <li>PlateRoute will confirm your contact details.</li>
+                        <li>We will review your business address and verify that the restaurant or home food vendor is active.</li>
+                        <li>Once approved, you can sign in to your dashboard and start adding your menu or offers.</li>
+                    </ul>
+                </div>
+                <p class="business-registration-success-note">Your business will not be visible to customers and cannot receive orders until this review is complete. We will contact you using the details you provided.</p>
+                <a class="business-registration-success-link" href="restaurants.html">Return to PlateRoute</a>
+            </section>
             <p class="business-registration-login-link">Already approved? <a href="admin-login.html">Open your admin login</a>.</p>
         </section>
     </main>
-    <script src="business-registration.js?v=20261018b"></script>
+    <script src="business-registration.js?v=20261020a"></script>
 </body>
 </html>

@@ -2,6 +2,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("business-registration-form");
     const statusEl = document.getElementById("business-registration-status");
     const submitButton = document.getElementById("business-registration-submit");
+    const successEl = document.getElementById("business-registration-success");
+    const successMessageEl = document.getElementById("business-registration-success-message");
     const countryEl = document.getElementById("business-country");
     const stateEl = document.getElementById("business-state");
     const localGovernmentEl = document.getElementById("business-local-government");
@@ -110,13 +112,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(data.message || "We could not submit your application.");
             }
 
+            const businessName = String(values.name || "your business").trim();
             form.reset();
             latitudeEl.value = "";
             longitudeEl.value = "";
             setLocationStatus("");
             countryEl.value = "Nigeria";
             populateStates();
-            setStatus("Application received. PlateRoute will verify your business before activating your dashboard.", "success");
+            setStatus("");
+            successMessageEl.textContent = `Your application for ${businessName} has been received and is now waiting for review.`;
+            form.hidden = true;
+            successEl.hidden = false;
+            successEl.focus();
         } catch (error) {
             setStatus(error.message || "We could not submit your application.", "error");
         } finally {

@@ -4739,6 +4739,102 @@ button {
     font-weight: 700;
 }
 
+.business-registration-success {
+    position: relative;
+    overflow: hidden;
+    margin-top: 4px;
+    padding: 24px;
+    border: 1px solid #b8ddc1;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #f0faef, #ffffff 70%);
+    color: #244433;
+}
+
+.business-registration-success::after {
+    content: "";
+    position: absolute;
+    top: -54px;
+    right: -40px;
+    width: 144px;
+    height: 144px;
+    border-radius: 50%;
+    background: rgba(36, 132, 70, 0.1);
+}
+
+.business-registration-success > * {
+    position: relative;
+    z-index: 1;
+}
+
+.business-registration-success-icon {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    margin-bottom: 12px;
+    border-radius: 50%;
+    background: #177245;
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.business-registration-success h3 {
+    margin: 4px 0 7px;
+    color: #143d2b;
+    font-size: 1.45rem;
+}
+
+.business-registration-success > p {
+    margin: 0;
+    color: #526f5b;
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
+.business-registration-success-next {
+    margin: 17px 0 14px;
+    padding: 15px;
+    border: 1px solid #d6e9d8;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.78);
+    font-size: 0.8rem;
+}
+
+.business-registration-success-next strong {
+    color: #1b613a;
+}
+
+.business-registration-success-next ul {
+    display: grid;
+    gap: 7px;
+    margin: 10px 0 0;
+    padding-left: 20px;
+    color: #526f5b;
+    line-height: 1.45;
+}
+
+.business-registration-success-note {
+    font-size: 0.76rem !important;
+}
+
+.business-registration-success-link {
+    display: inline-flex;
+    margin-top: 18px;
+    border-radius: 9px;
+    padding: 10px 13px;
+    background: #17623e;
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.business-registration-success-link:hover,
+.business-registration-success-link:focus-visible {
+    background: #104a2d;
+}
+
 .directory-join-link {
     display: inline-flex;
     margin-top: 15px;
@@ -4861,6 +4957,10 @@ button {
 
     .business-registration-account {
         padding: 13px;
+    }
+
+    .business-registration-success {
+        padding: 20px 16px;
     }
 
     .business-location-capture {
