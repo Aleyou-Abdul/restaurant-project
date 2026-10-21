@@ -19,6 +19,19 @@ This app can run on Render Free for demos, but production must use persistent st
 - One running instance only while using SQLite
 - Environment variables configured in the Render dashboard
 
+## Temporary Launch Page For A Custom Domain
+
+Before the public launch, the custom domain can show a small "launching soon" page while the normal Railway URL remains available for testing and business operations.
+
+Set these variables only after the custom domain has been connected to the hosting service:
+
+```env
+COMING_SOON_MODE=true
+COMING_SOON_HOSTS=plateroute.ng,www.plateroute.ng
+```
+
+This affects only the `/` page for those domain names. It does not affect the Railway URL, staff dashboard, admin dashboard, super-admin dashboard, or their APIs. When PlateRoute is ready to open publicly, change `COMING_SOON_MODE` to `false` and redeploy.
+
 ## Render Deployment
 
 This repository now includes:
