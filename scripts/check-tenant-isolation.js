@@ -151,6 +151,7 @@ async function main() {
                 })
             });
             assert.equal(application.status, 201, `${name} application should be received.`);
+            assert.ok(application.data.application.restaurantId, `${name} should receive a business-specific admin login identifier.`);
 
             const bootstrap = await request(port, "/api/super-admin/bootstrap", {}, superLogin.cookie);
             assert.equal(bootstrap.status, 200, "Super Admin should be able to review applications.");
@@ -173,6 +174,16 @@ async function main() {
                 body: JSON.stringify({ restaurantId: restaurant.id, status: "active" })
             }, superLogin.cookie);
             assert.equal(activate.status, 200, `${name} should be approved by Super Admin.`);
+
+            const publicRestaurants = await request(port, "/api/restaurants");
+            assert.equal(publicRestaurants.status, 200, "Approved businesses should be listed for business sign-in.");
+            assert.ok(publicRestaurants.data.restaurants.some((item) => item.id === restaurant.id), `${name} should be selectable from the business login page after approval.`);
+
+            const approvedAdminLogin = await request(port, `/api/admin/login?restaurantId=${encodeURIComponent(restaurant.id)}`, {
+                method: "POST",
+                body: JSON.stringify({ username, password: "restaurant-password", restaurantId: restaurant.id })
+            });
+            assert.equal(approvedAdminLogin.status, 200, `${name} owner should be able to sign in after approval.`);
             return restaurant;
         };
 

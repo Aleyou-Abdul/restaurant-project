@@ -3,15 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Login | My Restaurant</title>
-    <link rel="stylesheet" href="style.css?v=20261017b">
+    <title>Business Admin Login | PlateRoute</title>
+    <link rel="stylesheet" href="style.css?v=20261020a">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
 <body class="admin-body">
     <div class="admin-login-screen">
         <div class="admin-login-card">
-            <h3>Admin Login</h3>
-            <p class="order-note-help">Sign in to manage orders, menu, delivery fees, and public site details.</p>
+            <h3>PlateRoute Business Login</h3>
+            <p class="order-note-help">Choose your approved restaurant or home food vendor account, then sign in to manage orders, your menu, and business details.</p>
+            <label for="admin-restaurant">Your business</label>
+            <select id="admin-restaurant" autocomplete="organization" disabled>
+                <option value="">Loading approved businesses...</option>
+            </select>
             <label for="admin-username">Username</label>
             <input id="admin-username" type="text" autocomplete="username">
             <label for="admin-password">Password</label>
@@ -21,6 +25,6 @@
         </div>
     </div>
 
-    <script src="admin-login.js"></script>
+    <script src="admin-login.js?v=20261020a"></script>
 </body>
 </html>

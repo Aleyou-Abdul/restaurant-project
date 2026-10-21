@@ -187,6 +187,7 @@ const server = http.createServer(async (req, res) => {
             ok: true,
             message: "Application received. PlateRoute will verify your business before activating your dashboard.",
             application: {
+                restaurantId: restaurant.id,
                 businessName: restaurant.name,
                 status: restaurant.status
             }

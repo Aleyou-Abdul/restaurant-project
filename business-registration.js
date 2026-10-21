@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const submitButton = document.getElementById("business-registration-submit");
     const successEl = document.getElementById("business-registration-success");
     const successMessageEl = document.getElementById("business-registration-success-message");
+    const adminLoginLink = document.getElementById("business-registration-login-link");
     const countryEl = document.getElementById("business-country");
     const stateEl = document.getElementById("business-state");
     const localGovernmentEl = document.getElementById("business-local-government");
@@ -21,6 +22,12 @@ document.addEventListener("DOMContentLoaded", () => {
     function setLocationStatus(message = "", type = "") {
         locationStatusEl.textContent = message;
         locationStatusEl.className = `business-location-status${type ? ` ${type}` : ""}`;
+    }
+
+    function setAdminLoginLink(restaurantId) {
+        const normalizedId = String(restaurantId || "").trim();
+        if (!normalizedId) return;
+        adminLoginLink.href = `admin-login.html?restaurantId=${encodeURIComponent(normalizedId)}`;
     }
 
     function setOptions(select, placeholder, values, selectedValue = "") {
@@ -121,6 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
             populateStates();
             setStatus("");
             successMessageEl.textContent = `Your application for ${businessName} has been received and is now waiting for review.`;
+            setAdminLoginLink(data.application && data.application.restaurantId);
             form.hidden = true;
             successEl.hidden = false;
             successEl.focus();
