@@ -55,13 +55,6 @@ const demoHomeVendorAdminPassword = process.env.HOME_VENDOR_DEMO_ADMIN_PASSWORD 
 const demoHomeVendorAdminPasswordHash = process.env.HOME_VENDOR_DEMO_ADMIN_PASSWORD_HASH || "";
 const backupHour = Number(process.env.BACKUP_HOUR || 3);
 const backupRetentionDays = Number(process.env.BACKUP_RETENTION_DAYS || 14);
-const comingSoonModeEnabled = process.env.COMING_SOON_MODE === "true";
-const comingSoonHosts = new Set(
-    String(process.env.COMING_SOON_HOSTS || "")
-        .split(",")
-        .map((host) => host.trim().toLowerCase())
-        .filter(Boolean)
-);
 const adminSessions = new Map();
 const staffSessions = new Map();
 const superAdminSessions = new Map();
@@ -96,11 +89,6 @@ const server = http.createServer(async (req, res) => {
     const requestUrl = new URL(req.url, `http://${req.headers.host}`);
     const clientIp = getClientIp(req);
     const requestRestaurantId = getRequestRestaurantId(requestUrl, req);
-
-    // Keep the live app available on Railway while the custom public domain shows its launch page.
-    if ((req.method === "GET" || req.method === "HEAD") && shouldShowComingSoonPage(req, requestUrl)) {
-        return serveStaticFile(req, "/coming-soon.html", res);
-    }
 
     try {
         await databaseReady;
@@ -4194,23 +4182,6 @@ function serveStaticFile(req, requestPath, res) {
             });
         });
     });
-}
-
-function shouldShowComingSoonPage(req, requestUrl) {
-    if (!comingSoonModeEnabled || !comingSoonHosts.size) {
-        return false;
-    }
-
-    if (requestUrl.pathname !== "/" && requestUrl.pathname !== "/index.html") {
-        return false;
-    }
-
-    const requestHost = String(req.headers.host || "")
-        .split(":")[0]
-        .trim()
-        .toLowerCase();
-
-    return comingSoonHosts.has(requestHost);
 }
 
 function serveUploadedFile(req, requestPath, res) {
