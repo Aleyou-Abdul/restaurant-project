@@ -11,11 +11,11 @@ This app can run on Render Free for demos, but production must use persistent st
 - `VPS`
   Good if you want full control and traditional server management.
 
-## Recommended Setup
+## Recommended Production Setup
 
-- Render web service
+- Render `Starter` web service (`0.5c-512mb`)
 - Node.js 20 or newer
-- Render Free for demo, or persistent disk enabled for production
+- 1 GB persistent disk mounted at `/opt/render/project/src/storage`
 - One running instance only while using SQLite
 - Environment variables configured in the Render dashboard
 
@@ -25,16 +25,15 @@ This repository now includes:
 
 - `render.yaml`
 
-For the current free demo blueprint, use:
+The checked-in `render.yaml` creates a clean production service with:
 
 - `Web Service`
-- `Free plan`
+- `Starter` plan (`0.5 CPU`, `512 MB RAM`)
 - `1 instance only`
-- `No persistent disk`
+- `1 GB persistent disk`
+- health check path `/healthz`
 
-Important: free demo data can reset after restart or redeploy.
-
-For production, upgrade to a paid plan and add a persistent disk.
+It intentionally starts with a new database. Do not add or copy existing database files when creating this production service unless you specifically want to migrate old data.
 
 ### Important Render settings
 

@@ -1,17 +1,24 @@
 services:
   - type: web
-    name: restaurant-project
+    name: plateroute
     runtime: node
-    plan: free
+    plan: 0.5c-512mb
     buildCommand: npm ci --omit=dev
     startCommand: npm start
     autoDeploy: true
+    healthCheckPath: /healthz
+    disk:
+      name: plateroute-data
+      mountPath: /opt/render/project/src/storage
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
       - key: NODE_VERSION
         value: 20
-      - key: PORT
-        value: 10000
       - key: STORAGE_ROOT
-        value: /tmp/restaurant-demo-storage
+        value: /opt/render/project/src/storage
+      - key: BACKUP_HOUR
+        value: 3
+      - key: BACKUP_RETENTION_DAYS
+        value: 14
